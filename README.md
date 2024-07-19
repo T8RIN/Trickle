@@ -1,3 +1,3 @@
 # Trickle
 
-Native image processing library
+Android Native image processing library with JNI bindings
