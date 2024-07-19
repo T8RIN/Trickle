@@ -1,1 +1,3 @@
-Set of Libraries used in Image Toolbox
+# Trickle
+
+Native image processing library
