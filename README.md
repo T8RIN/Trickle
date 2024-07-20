@@ -1,1 +1,3 @@
-Set of Libraries used in Image Toolbox
+# Trickle
+
+Android Native image processing library with JNI bindings
