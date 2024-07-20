@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 }
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "Trickle"
+rootProject.name = "TrickleLib"
 
 include(":trickle")
 include(":app")
