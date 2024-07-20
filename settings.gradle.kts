@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 }
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "ImageToolboxLibs"
+rootProject.name = "Trickle"
 
 include(":trickle")
 include(":app")
