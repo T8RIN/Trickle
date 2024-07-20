@@ -268,3 +268,85 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_colorPosterizeImpl(JNIEnv *e
 
     return resultBitmap;
 }
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_replaceColorImpl(JNIEnv *env, jobject thiz,
+                                                                     jobject input,
+                                                                     jint source_color,
+                                                                     jint target_color,
+                                                                     jfloat tolerance) {
+    AndroidBitmapInfo sourceInfo;
+    void *sourcePixels;
+    if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &sourcePixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t width = sourceInfo.width;
+    uint32_t height = sourceInfo.height;
+    uint32_t stride = sourceInfo.stride;
+
+    RGB sourceColor = ColorToRGB(source_color);
+    ARGB targetColor = ColorToARGB(target_color);
+
+    jobject resultBitmap = createBitmap(env, width, height);
+
+    AndroidBitmapInfo resultInfo;
+    void *resultPixels;
+    if (AndroidBitmap_getInfo(env, resultBitmap, &resultInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, resultBitmap);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, resultBitmap, &resultPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, resultBitmap);
+        return nullptr;
+    }
+
+    for (int y = 0; y < height; ++y) {
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
+                                               y * stride);
+
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(resultPixels) +
+                                               y * stride);
+        int x = 0;
+
+        for (; x < width; ++x) {
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int srcAlpha = src[3];
+
+            RGB pixel = RGB(r, g, b);
+
+            ARGB argb;
+
+            if (colorDiff(pixel, sourceColor) / 255.0 <= cbrt(3) * tolerance) {
+                argb = targetColor;
+            } else {
+                argb = ARGB(srcAlpha, r, g, b);
+            }
+
+            dst[0] = argb.r;
+            dst[1] = argb.g;
+            dst[2] = argb.b;
+            dst[3] = argb.a;
+
+            dst += 4;
+            src += 4;
+        }
+    }
+
+    if (AndroidBitmap_unlockPixels(env, input) < 0) {
+        AndroidBitmap_unlockPixels(env, resultBitmap);
+        return nullptr;
+    }
+
+    if (AndroidBitmap_unlockPixels(env, resultBitmap) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    return resultBitmap;
+}

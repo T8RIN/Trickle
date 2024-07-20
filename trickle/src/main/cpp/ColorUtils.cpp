@@ -145,3 +145,12 @@ RGB ColorToRGB(int color) {
 
     return {red, green, blue};
 }
+
+ARGB ColorToARGB(int color) {
+    uint8_t alpha = (color >> 24) & 0xFF;
+    uint8_t red = (color >> 16) & 0xFF;
+    uint8_t green = (color >> 8) & 0xFF;
+    uint8_t blue = color & 0xFF;
+
+    return {alpha, red, green, blue};
+}

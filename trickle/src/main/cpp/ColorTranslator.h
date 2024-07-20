@@ -22,6 +22,20 @@ typedef struct _rgb { // 0 ~ 225
     int b;
 } RGB;
 
+typedef struct _argb { // 0 ~ 225
+    _argb(int a = 0, int r = 0, int g = 0, int b = 0) {
+        this->a = a;
+        this->r = r;
+        this->g = g;
+        this->b = b;
+    }
+
+    int a;
+    int r;
+    int g;
+    int b;
+} ARGB;
+
 typedef struct _hsi {
     _hsi(double h = 0, double s = 0, double i = 0) {
         this->h = h;

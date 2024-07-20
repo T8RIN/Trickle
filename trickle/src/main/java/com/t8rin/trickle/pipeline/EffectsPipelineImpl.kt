@@ -53,14 +53,6 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         return result
     }
 
-    override fun colorPosterize(
-        input: Bitmap,
-        colors: IntArray
-    ): Bitmap = colorPosterizeImpl(
-        input = input,
-        colors = colors
-    ) ?: input
-
     override fun shuffleBlur(
         input: Bitmap,
         threshold: Float,
@@ -75,6 +67,25 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         return result
     }
 
+    override fun colorPosterize(
+        input: Bitmap,
+        colors: IntArray
+    ): Bitmap = colorPosterizeImpl(
+        input = input,
+        colors = colors
+    ) ?: input
+
+    override fun replaceColor(
+        input: Bitmap,
+        sourceColor: Int,
+        targetColor: Int,
+        tolerance: Float
+    ): Bitmap = replaceColorImpl(
+        input = input,
+        sourceColor = sourceColor,
+        targetColor = targetColor,
+        tolerance = tolerance
+    ) ?: input
 
     private external fun oilImpl(input: Bitmap, oilRange: Int): Bitmap?
 
@@ -105,6 +116,13 @@ internal object EffectsPipelineImpl : EffectsPipeline {
     private external fun colorPosterizeImpl(
         input: Bitmap,
         colors: IntArray
+    ): Bitmap?
+
+    private external fun replaceColorImpl(
+        input: Bitmap,
+        sourceColor: Int,
+        targetColor: Int,
+        tolerance: Float
     ): Bitmap?
 
 }

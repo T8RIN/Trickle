@@ -98,11 +98,11 @@ fun MainActivity.Jp2Hypothesis() {
             )
         }
 
-        val colors by remember(intensity) {
+        val colors by remember {
             derivedStateOf {
                 generateShades(
                     Color.Cyan.toArgb(),
-                    shadeStep = (100 * intensity).toInt().coerceAtLeast(2)
+                    shadeStep = (20).toInt().coerceAtLeast(2)
                 )
             }
         }
@@ -126,38 +126,38 @@ fun MainActivity.Jp2Hypothesis() {
                 modifier = Modifier.weight(1f),
                 contentDescription = null
             )
-            AsyncImage(
-                model = remember(source, target, intensity) {
-                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false).data(source)
-                        .transformations(
-                            GenericTransformation { bmp ->
-                                val source = bmp.copy(Bitmap.Config.ARGB_8888, true)
-
-                                delay(2000)
-                                Log.d("INPUT", colors.joinToString())
-                                repeat(source.width) { x ->
-                                    repeat(source.height) { y ->
-                                        val color = source.getPixel(x, y)
-                                        val target =
-                                            colors.minBy {
-                                                Color(it).distanceFrom(Color(color)).also {
-                                                    if (x == source.width / 2 && y == source.height / 2) {
-                                                        Log.d("NonNative", it.toString())
-                                                    }
-                                                }
-                                            }
-                                        source.setPixel(x, y, target)
-                                    }
-                                }
-
-                                source
-                            }
-                        ).build()
-                },
-                imageLoader = imageLoader,
-                modifier = Modifier.weight(1f),
-                contentDescription = null
-            )
+//            AsyncImage(
+//                model = remember(source, target, intensity) {
+//                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false).data(source)
+//                        .transformations(
+//                            GenericTransformation { bmp ->
+//                                val source = bmp.copy(Bitmap.Config.ARGB_8888, true)
+//
+//                                delay(2000)
+//                                Log.d("INPUT", colors.joinToString())
+//                                repeat(source.width) { x ->
+//                                    repeat(source.height) { y ->
+//                                        val color = source.getPixel(x, y)
+//                                        val target =
+//                                            colors.minBy {
+//                                                Color(it).distanceFrom(Color(color)).also {
+//                                                    if (x == source.width / 2 && y == source.height / 2) {
+//                                                        Log.d("NonNative", it.toString())
+//                                                    }
+//                                                }
+//                                            }
+//                                        source.setPixel(x, y, target)
+//                                    }
+//                                }
+//
+//                                source
+//                            }
+//                        ).build()
+//                },
+//                imageLoader = imageLoader,
+//                modifier = Modifier.weight(1f),
+//                contentDescription = null
+//            )
         }
 
         AsyncImage(
@@ -166,7 +166,12 @@ fun MainActivity.Jp2Hypothesis() {
                     .transformations(
                         GenericTransformation { bmp ->
                             Log.d("INPUT_native", colors.toIntArray().joinToString())
-                            Trickle.colorPosterize(bmp, colors.toIntArray())
+                            Trickle.replaceColor(
+                                Trickle.colorPosterize(bmp, colors.toIntArray()),
+                                Color.Cyan.toArgb(),
+                                Color.Transparent.toArgb(),
+                                intensity
+                            )
                         }
                     ).build()
             },

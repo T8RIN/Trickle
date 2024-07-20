@@ -32,4 +32,6 @@ double colorDiff(RGB color1, RGB color2);
 
 RGB ColorToRGB(int color);
 
+ARGB ColorToARGB(int color);
+
 #endif //IMAGETOOLBOXLIBS_COLORUTILS_H

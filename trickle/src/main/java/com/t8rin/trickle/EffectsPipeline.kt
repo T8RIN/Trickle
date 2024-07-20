@@ -42,4 +42,11 @@ interface EffectsPipeline {
         colors: IntArray
     ): Bitmap
 
+    fun replaceColor(
+        input: Bitmap,
+        sourceColor: Int,
+        targetColor: Int,
+        tolerance: Float
+    ): Bitmap
+
 }
