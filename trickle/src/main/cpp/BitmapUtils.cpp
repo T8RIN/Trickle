@@ -42,7 +42,7 @@ jobject createBitmap(JNIEnv *env, int *targetPixels, int width, int height, int 
     return resultBitmap;
 }
 
-jobject createBitmap(JNIEnv *env, int width, int height) {
+jobject createBitmap(JNIEnv *env, uint32_t width, uint32_t height) {
     jclass bitmapConfig = env->FindClass("android/graphics/Bitmap$Config");
     jfieldID rgba8888FieldID = env->GetStaticFieldID(bitmapConfig, "ARGB_8888",
                                                      "Landroid/graphics/Bitmap$Config;");

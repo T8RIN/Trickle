@@ -10,6 +10,6 @@
 jobject createBitmap(JNIEnv *env, int *targetPixels, int width, int height, int stride,
                      bool autoDelete = false);
 
-jobject createBitmap(JNIEnv *env, int width, int height);
+jobject createBitmap(JNIEnv *env, uint32_t width, uint32_t height);
 
 #endif //TRICKLELIB_BITMAPUTILS_H

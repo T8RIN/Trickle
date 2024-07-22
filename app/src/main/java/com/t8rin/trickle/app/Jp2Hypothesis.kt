@@ -1,16 +1,19 @@
 package com.t8rin.trickle.app
 
 import android.graphics.Bitmap
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -22,17 +25,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
+import com.t8rin.trickle.DitheringType
 import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.TrickleUtils.generateShades
-import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 @Composable
@@ -77,7 +78,7 @@ fun MainActivity.Jp2Hypothesis() {
         val imageLoader = remember {
             imageLoader.newBuilder().logger(DebugLogger()).build()
         }
-        var fill by remember {
+        var isGray by remember {
             mutableStateOf(true)
         }
         Row(
@@ -95,6 +96,7 @@ fun MainActivity.Jp2Hypothesis() {
                 modifier = Modifier.weight(1f),
                 contentDescription = null
             )
+            Switch(checked = isGray, onCheckedChange = { isGray = it })
         }
 
         val colors by remember {
@@ -105,83 +107,69 @@ fun MainActivity.Jp2Hypothesis() {
                 )
             }
         }
+
+        val scrollState = rememberScrollState()
         Row(
             modifier = Modifier.weight(1f)
         ) {
-            AsyncImage(
-                model = remember(source, target, intensity) {
-                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false).data(source)
-                        .transformations(
-                            GenericTransformation { bmp ->
-                                val source = bmp.copy(Bitmap.Config.ARGB_8888, true)
-                                val target = imageLoader.newBuilder().build().execute(
-                                    ImageRequest.Builder(this@Jp2Hypothesis).data(target).build()
-                                ).drawable!!.toBitmap().copy(Bitmap.Config.ARGB_8888, true)
-                                colorTransfer(target, source, intensity)
-                            }
-                        ).build()
-                },
-                imageLoader = imageLoader,
-                modifier = Modifier.weight(1f),
-                contentDescription = null
-            )
-//            AsyncImage(
-//                model = remember(source, target, intensity) {
-//                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false).data(source)
-//                        .transformations(
-//                            GenericTransformation { bmp ->
-//                                val source = bmp.copy(Bitmap.Config.ARGB_8888, true)
-//
-//                                delay(2000)
-//                                Log.d("INPUT", colors.joinToString())
-//                                repeat(source.width) { x ->
-//                                    repeat(source.height) { y ->
-//                                        val color = source.getPixel(x, y)
-//                                        val target =
-//                                            colors.minBy {
-//                                                Color(it).distanceFrom(Color(color)).also {
-//                                                    if (x == source.width / 2 && y == source.height / 2) {
-//                                                        Log.d("NonNative", it.toString())
-//                                                    }
-//                                                }
-//                                            }
-//                                        source.setPixel(x, y, target)
-//                                    }
-//                                }
-//
-//                                source
-//                            }
-//                        ).build()
-//                },
-//                imageLoader = imageLoader,
-//                modifier = Modifier.weight(1f),
-//                contentDescription = null
-//            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+            ) {
+                DitheringType.entries.forEach { type ->
+                    Text(type.name)
+                    AsyncImage(
+                        model = remember(source, isGray, colors) {
+                            ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+                                .data(source)
+                                .transformations(
+                                    GenericTransformation { bmp ->
+                                        Trickle.dithering(
+                                            input = bmp,
+                                            type = type,
+                                            threshold = 128,
+                                            isGrayScale = isGray
+                                        )
+                                    }
+                                ).build()
+                        },
+                        imageLoader = imageLoader,
+                        modifier = Modifier.height(300.dp),
+                        contentDescription = null
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+            ) {
+                DitherTool.Type.entries.forEach { type ->
+                    Text(type.name)
+                    AsyncImage(
+                        model = remember(source, isGray, colors) {
+                            ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+                                .data(source)
+                                .transformations(
+                                    GenericTransformation { bmp ->
+                                        DitherTool(
+                                            threshold = 128,
+                                            isGrayScale = isGray
+                                        ).dither(
+                                            type = type,
+                                            src = bmp
+                                        )
+                                    }
+                                ).build()
+                        },
+                        imageLoader = imageLoader,
+                        modifier = Modifier.height(300.dp),
+                        contentDescription = null
+                    )
+                }
+            }
         }
-
-        AsyncImage(
-            model = remember(source, intensity, colors) {
-                ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false).data(source)
-                    .transformations(
-                        GenericTransformation { bmp ->
-                            Log.d("INPUT_native", colors.toIntArray().joinToString())
-//                            Trickle.replaceColor(
-//                                Trickle.colorPosterize(bmp, colors.toIntArray()),
-//                                Color.Cyan.toArgb(),
-//                                Color.Transparent.toArgb(),
-//                                intensity
-//                            )
-                            Trickle.drawColorBehind(
-                                input = bmp,
-                                color = Color.Green.copy(0.3f).toArgb()
-                            )
-                        }
-                    ).build()
-            },
-            imageLoader = imageLoader,
-            modifier = Modifier.weight(1f),
-            contentDescription = null
-        )
 
         Row {
             Button(onClick = pickImage) {
@@ -214,8 +202,4 @@ class GenericTransformation(
         input: Bitmap,
         size: Size
     ): Bitmap = action(input, size)
-}
-
-private fun Color.distanceFrom(color: Color): Float {
-    return sqrt((red - color.red).pow(2) + (green - color.green).pow(2) + (blue - color.blue).pow(2))
 }
