@@ -87,10 +87,18 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         tolerance = tolerance
     ) ?: input
 
-    override fun drawColor(
+    override fun drawColorAbove(
         input: Bitmap,
         color: Int
-    ): Bitmap = drawColorImpl(
+    ): Bitmap = drawColorAboveImpl(
+        input = input,
+        color = color
+    ) ?: input
+
+    override fun drawColorBehind(
+        input: Bitmap,
+        color: Int
+    ): Bitmap = drawColorBehindImpl(
         input = input,
         color = color
     ) ?: input
@@ -133,7 +141,12 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         tolerance: Float
     ): Bitmap?
 
-    private external fun drawColorImpl(
+    private external fun drawColorAboveImpl(
+        input: Bitmap,
+        color: Int
+    ): Bitmap?
+
+    private external fun drawColorBehindImpl(
         input: Bitmap,
         color: Int
     ): Bitmap?

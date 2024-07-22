@@ -171,7 +171,7 @@ fun MainActivity.Jp2Hypothesis() {
 //                                Color.Transparent.toArgb(),
 //                                intensity
 //                            )
-                            Trickle.drawColor(
+                            Trickle.drawColorBehind(
                                 input = bmp,
                                 color = Color.Green.copy(0.3f).toArgb()
                             )
