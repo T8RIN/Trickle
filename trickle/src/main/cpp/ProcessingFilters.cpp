@@ -315,3 +315,96 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorBehindImpl(JNIEnv *
 
     return newImage;
 }
+
+ARGB mixColors(float t, uint32_t color1, uint32_t color2) {
+    uint8_t a1 = (color1 >> 24) & 0xFF;
+    uint8_t r1 = (color1 >> 16) & 0xFF;
+    uint8_t g1 = (color1 >> 8) & 0xFF;
+    uint8_t b1 = color1 & 0xFF;
+
+    uint8_t a2 = (color2 >> 24) & 0xFF;
+    uint8_t r2 = (color2 >> 16) & 0xFF;
+    uint8_t g2 = (color2 >> 8) & 0xFF;
+    uint8_t b2 = color2 & 0xFF;
+
+    uint8_t a = static_cast<uint8_t>(a1 + t * (a2 - a1));
+    uint8_t r = static_cast<uint8_t>(r1 + t * (r2 - r1));
+    uint8_t g = static_cast<uint8_t>(g1 + t * (g2 - g1));
+    uint8_t b = static_cast<uint8_t>(b1 + t * (b2 - b1));
+
+    return {a, r, g, b};
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tritoneImpl(JNIEnv *env, jobject thiz,
+                                                                jobject input, jint shadows_color,
+                                                                jint middle_color,
+                                                                jint highlights_color) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, input, &info)) < 0) {
+        return nullptr;
+    }
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        return nullptr;
+    }
+
+    if ((ret = AndroidBitmap_lockPixels(env, input, &pixels)) < 0) {
+        return nullptr;
+    }
+
+    int width = info.width;
+    int height = info.height;
+    int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, width, height);
+    void *outPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, outBitmap, &outPixels)) < 0) {
+        return nullptr;
+    }
+
+    ARGB lut[256];
+    for (int i = 0; i < 128; ++i) {
+        float t = i / 127.0f;
+        lut[i] = mixColors(t, shadows_color, middle_color);
+    }
+    for (int i = 128; i < 256; ++i) {
+        float t = (i - 127) / 128.0f;
+        lut[i] = mixColors(t, middle_color, highlights_color);
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(pixels) +
+                                               y * stride);
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outPixels) +
+                                               y * stride);
+
+        for (uint32_t x = 0; x < width; ++x) {
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int a = src[3];
+
+            auto gray = static_cast<uint8_t>((0.299f * r + 0.587f * g + 0.114f * b));
+
+            ARGB argb = lut[gray];
+
+            dst[0] = argb.r;
+            dst[1] = argb.g;
+            dst[2] = argb.b;
+            dst[3] = argb.a;
+
+            dst += 4;
+            src += 4;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}

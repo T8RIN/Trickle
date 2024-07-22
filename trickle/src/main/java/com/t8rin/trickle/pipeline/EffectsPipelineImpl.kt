@@ -103,6 +103,25 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         color = color
     ) ?: input
 
+    override fun tritone(
+        input: Bitmap,
+        shadowsColor: Int,
+        middleColor: Int,
+        highlightsColor: Int
+    ): Bitmap = tritoneImpl(
+        input = input,
+        shadowsColor = shadowsColor,
+        middleColor = middleColor,
+        highlightsColor = highlightsColor
+    ) ?: input
+
+    private external fun tritoneImpl(
+        input: Bitmap,
+        shadowsColor: Int,
+        middleColor: Int,
+        highlightsColor: Int
+    ): Bitmap?
+
     private external fun oilImpl(input: Bitmap, oilRange: Int): Bitmap?
 
     private external fun tvImpl(input: Bitmap): Bitmap?

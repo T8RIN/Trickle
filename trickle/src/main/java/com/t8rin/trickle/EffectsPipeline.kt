@@ -59,4 +59,11 @@ interface EffectsPipeline {
         color: Int
     ): Bitmap
 
+    fun tritone(
+        input: Bitmap,
+        shadowsColor: Int,
+        middleColor: Int,
+        highlightsColor: Int
+    ): Bitmap
+
 }

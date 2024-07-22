@@ -117,6 +117,25 @@ fun MainActivity.Jp2Hypothesis() {
                     .weight(1f)
                     .verticalScroll(scrollState)
             ) {
+                AsyncImage(
+                    model = remember(source, isGray, colors) {
+                        ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+                            .data(source)
+                            .transformations(
+                                GenericTransformation { bmp ->
+                                    Trickle.tritone(
+                                        input = bmp,
+                                        shadowsColor = Color.Red.toArgb(),
+                                        middleColor = Color(0xFF1C5A6D).toArgb(),
+                                        highlightsColor = Color(0xFF2A8F67).toArgb()
+                                    )
+                                }
+                            ).build()
+                    },
+                    imageLoader = imageLoader,
+                    modifier = Modifier.height(300.dp),
+                    contentDescription = null
+                )
                 DitheringType.entries.forEach { type ->
                     Text(type.name)
                     AsyncImage(
