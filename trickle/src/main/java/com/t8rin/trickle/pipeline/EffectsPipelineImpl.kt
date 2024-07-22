@@ -87,6 +87,14 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         tolerance = tolerance
     ) ?: input
 
+    override fun drawColor(
+        input: Bitmap,
+        color: Int
+    ): Bitmap = drawColorImpl(
+        input = input,
+        color = color
+    ) ?: input
+
     private external fun oilImpl(input: Bitmap, oilRange: Int): Bitmap?
 
     private external fun tvImpl(input: Bitmap): Bitmap?
@@ -123,6 +131,11 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         sourceColor: Int,
         targetColor: Int,
         tolerance: Float
+    ): Bitmap?
+
+    private external fun drawColorImpl(
+        input: Bitmap,
+        color: Int
     ): Bitmap?
 
 }

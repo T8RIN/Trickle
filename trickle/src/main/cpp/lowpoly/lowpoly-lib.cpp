@@ -7,16 +7,18 @@
 #include "lowpoly.h"
 #include "cairo-surface-inline.h"
 #include "_log.h"
+#include "../BitmapUtils.h"
 #include <string>
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
 
 extern "C"
 JNIEXPORT jintArray JNICALL
-Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_getTriangles(JNIEnv *env, jclass type,
-                                                        jobject input,
-                                                        jint threshold,
-                                                        jfloat alpha_count, jboolean lowPoly) {
+Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_getTriangles(JNIEnv *env, jobject type,
+                                                                 jobject input,
+                                                                 jint threshold,
+                                                                 jfloat alpha_count,
+                                                                 jboolean lowPoly) {
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
         return nullptr;
@@ -66,11 +68,12 @@ inline uint32_t abgr_to_rgba(uint32_t abgr) {
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jclass clazz,
+Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jobject clazz,
                                                              jobject input,
-                                                    jint threshold,
-                                                    jfloat alphaOrPointCount, jboolean lowPoly,
-                                                    jboolean fill) {
+                                                             jint threshold,
+                                                             jfloat alphaOrPointCount,
+                                                             jboolean lowPoly,
+                                                             jboolean fill) {
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
         return nullptr;
@@ -85,16 +88,7 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jclass
     int height = (int) info.height;
     int stride = (int) info.stride;
 
-    jclass bitmapClass = (*env).FindClass("android/graphics/Bitmap");
-    jmethodID createBitmapMethod = (*env).GetStaticMethodID(bitmapClass, "createBitmap",
-                                                            "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
-    jclass bitmapConfigClass = (*env).FindClass("android/graphics/Bitmap$Config");
-    jfieldID argb8888Field = (*env).GetStaticFieldID(bitmapConfigClass, "ARGB_8888",
-                                                     "Landroid/graphics/Bitmap$Config;");
-    jobject argb8888 = (*env).GetStaticObjectField(bitmapConfigClass, argb8888Field);
-
-    jobject newImage = (*env).CallStaticObjectMethod(bitmapClass, createBitmapMethod, width,
-                                                     height, argb8888);
+    jobject newImage = createBitmap(env, width, height);
     if (newImage == nullptr) {
         AndroidBitmap_unlockPixels(env, input);
         return nullptr;

@@ -35,6 +35,7 @@ add_library( # Sets the name of the library.
         ColorTransfer.cpp
         ProcessingFilters.cpp
         ColorUtils.cpp
+        BitmapUtils.cpp
         lowpoly/lowpoly-lib.cpp
         lowpoly/sobel.c
         lowpoly/delaunay.c

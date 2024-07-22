@@ -12,10 +12,12 @@
 #include <cmath>
 #include <string>
 #include "ColorUtils.h"
+#include "BitmapUtils.h"
+#include "cairo.h"
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_noiseImpl(
-        JNIEnv *jenv, jclass clazz,
+        JNIEnv *jenv, jobject clazz,
         jobject src, int threshold
 ) {
     srand(time(NULL));
@@ -57,7 +59,7 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_shuffleBlurImpl(
         JNIEnv *jenv,
-        jclass clazz,
+        jobject clazz,
         jobject src,
         jfloat threshold,
         jfloat strength
@@ -160,20 +162,8 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_cropToContentImpl(
 
     if (left > right || top > bottom) return nullptr;
 
-    jclass bitmapConfig = env->FindClass("android/graphics/Bitmap$Config");
-    jfieldID rgba8888FieldID = env->GetStaticFieldID(bitmapConfig,
-                                                     "ARGB_8888",
-                                                     "Landroid/graphics/Bitmap$Config;");
-    jobject rgba8888Obj = env->GetStaticObjectField(bitmapConfig, rgba8888FieldID);
+    jobject newBitmap = createBitmap(env, right - left + 1, bottom - top + 1);
 
-    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
-    jmethodID createBitmapMethodID = env->GetStaticMethodID(bitmapClass,
-                                                            "createBitmap",
-                                                            "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
-    jobject newBitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethodID,
-                                                    static_cast<jint>(right - left + 1),
-                                                    static_cast<jint>(bottom - top + 1),
-                                                    rgba8888Obj);
     if (!newBitmap) return nullptr;
 
     AndroidBitmapInfo newInfo;
@@ -194,4 +184,65 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_cropToContentImpl(
     AndroidBitmap_unlockPixels(env, newBitmap);
 
     return newBitmap;
+}
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorImpl(JNIEnv *env, jobject thiz,
+                                                                  jobject input, jint color) {
+    AndroidBitmapInfo info;
+    if (AndroidBitmap_getInfo(env, input, &info) < 0) {
+        return nullptr;
+    }
+
+    void *pixels;
+    if (AndroidBitmap_lockPixels(env, input, &pixels) < 0) {
+        return nullptr;
+    }
+
+    int width = (int) info.width;
+    int height = (int) info.height;
+    int stride = (int) info.stride;
+
+    jobject newImage = createBitmap(env, width, height);
+    if (newImage == nullptr) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    void *newPixels;
+    if (AndroidBitmap_lockPixels(env, newImage, &newPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    memcpy(newPixels, pixels, stride * height);
+
+    cairo_surface_t *surface = cairo_image_surface_create_for_data(
+            reinterpret_cast<unsigned char *>(newPixels),
+            CAIRO_FORMAT_ARGB32,
+            width,
+            height,
+            stride
+    );
+
+    cairo_t *cr = cairo_create(surface);
+
+
+    cairo_scale(cr, width, height);
+
+    cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
+
+    ARGB argb = ColorToARGB(color);
+
+    cairo_set_source_rgba(cr, argb.b / 255.0, argb.g / 255.0, argb.r / 255.0, argb.a / 255.0);
+    cairo_rectangle(cr, 0.0, 0.0, 1.0, 1.0);
+    cairo_fill(cr);
+
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, newImage);
+
+    return newImage;
 }

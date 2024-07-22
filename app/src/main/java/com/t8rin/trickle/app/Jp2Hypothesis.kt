@@ -31,7 +31,6 @@ import coil.transform.Transformation
 import coil.util.DebugLogger
 import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.TrickleUtils.generateShades
-import kotlinx.coroutines.delay
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -166,11 +165,15 @@ fun MainActivity.Jp2Hypothesis() {
                     .transformations(
                         GenericTransformation { bmp ->
                             Log.d("INPUT_native", colors.toIntArray().joinToString())
-                            Trickle.replaceColor(
-                                Trickle.colorPosterize(bmp, colors.toIntArray()),
-                                Color.Cyan.toArgb(),
-                                Color.Transparent.toArgb(),
-                                intensity
+//                            Trickle.replaceColor(
+//                                Trickle.colorPosterize(bmp, colors.toIntArray()),
+//                                Color.Cyan.toArgb(),
+//                                Color.Transparent.toArgb(),
+//                                intensity
+//                            )
+                            Trickle.drawColor(
+                                input = bmp,
+                                color = Color.Green.copy(0.3f).toArgb()
                             )
                         }
                     ).build()

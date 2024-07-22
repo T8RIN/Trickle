@@ -49,4 +49,9 @@ interface EffectsPipeline {
         tolerance: Float
     ): Bitmap
 
+    fun drawColor(
+        input: Bitmap,
+        color: Int
+    ): Bitmap
+
 }
