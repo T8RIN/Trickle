@@ -1942,3 +1942,323 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleThresholdImpl(JNIEnv
 
     return outputBitmap;
 }
+
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered2x2DitheringImpl(
+        JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    static const int thresholdMatrix[2][2] = {
+            {0, 2},
+            {3, 1}
+    };
+
+    AndroidBitmapInfo sourceInfo;
+    void *sourcePixels;
+    if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &sourcePixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t width = sourceInfo.width;
+    uint32_t height = sourceInfo.height;
+    uint32_t stride = sourceInfo.stride;
+
+    jobject outputBitmap = createBitmap(env, width, height);
+
+    AndroidBitmapInfo outputInfo;
+    void *outputPixels;
+    if (AndroidBitmap_getInfo(env, outputBitmap, &outputInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, outputBitmap, &outputPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
+                                               y * stride);
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
+                                               y * stride);
+
+        for (uint32_t x = 0; x < width; ++x) {
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int a = src[3];
+
+            int threshold = thresholdMatrix[y % 2][x % 2] * 64;
+            ARGB argb;
+
+            if (is_gray_scale) {
+                int gray = r;
+                gray = (gray > threshold) ? 255 : 0;
+                argb = ARGB(a, gray, gray, gray);
+            } else {
+                r = (r > threshold) ? 255 : 0;
+                g = (g > threshold) ? 255 : 0;
+                b = (b > threshold) ? 255 : 0;
+                argb = ARGB(a, r, g, b);
+            }
+
+            dst[0] = argb.r;
+            dst[1] = argb.g;
+            dst[2] = argb.b;
+            dst[3] = argb.a;
+
+            dst += 4;
+            src += 4;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered4x4DitheringImpl(
+        JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    static const int thresholdMatrix[4][4] = {
+            {0,  8,  2,  10},
+            {12, 4,  14, 6},
+            {3,  11, 1,  9},
+            {15, 7,  13, 5}
+    };
+
+    AndroidBitmapInfo sourceInfo;
+    void *sourcePixels;
+    if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &sourcePixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t width = sourceInfo.width;
+    uint32_t height = sourceInfo.height;
+    uint32_t stride = sourceInfo.stride;
+
+    jobject outputBitmap = createBitmap(env, width, height);
+
+    AndroidBitmapInfo outputInfo;
+    void *outputPixels;
+    if (AndroidBitmap_getInfo(env, outputBitmap, &outputInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, outputBitmap, &outputPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
+                                               y * stride);
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
+                                               y * stride);
+
+        for (uint32_t x = 0; x < width; ++x) {
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int a = src[3];
+
+            int threshold = thresholdMatrix[y % 4][x % 4] * 16;
+            ARGB argb;
+
+            if (is_gray_scale) {
+                int gray = r;
+                gray = (gray > threshold) ? 255 : 0;
+                argb = ARGB(a, gray, gray, gray);
+            } else {
+                r = (r > threshold) ? 255 : 0;
+                g = (g > threshold) ? 255 : 0;
+                b = (b > threshold) ? 255 : 0;
+                argb = ARGB(a, r, g, b);
+            }
+
+            dst[0] = argb.r;
+            dst[1] = argb.g;
+            dst[2] = argb.b;
+            dst[3] = argb.a;
+
+            dst += 4;
+            src += 4;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered8x8DitheringImpl(
+        JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    static const int thresholdMatrix[8][8] = {
+            {0,  48, 12, 60, 3,  51, 15, 63},
+            {32, 16, 44, 28, 35, 19, 47, 31},
+            {8,  56, 4,  52, 11, 59, 7,  55},
+            {40, 24, 36, 20, 43, 27, 39, 23},
+            {2,  50, 14, 62, 1,  49, 13, 61},
+            {34, 18, 46, 30, 33, 17, 45, 29},
+            {10, 58, 6,  54, 9,  57, 5,  53},
+            {42, 26, 38, 22, 41, 25, 37, 21}
+    };
+
+    AndroidBitmapInfo sourceInfo;
+    void *sourcePixels;
+    if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &sourcePixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t width = sourceInfo.width;
+    uint32_t height = sourceInfo.height;
+    uint32_t stride = sourceInfo.stride;
+
+    jobject outputBitmap = createBitmap(env, width, height);
+
+    AndroidBitmapInfo outputInfo;
+    void *outputPixels;
+    if (AndroidBitmap_getInfo(env, outputBitmap, &outputInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, outputBitmap, &outputPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
+                                               y * stride);
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
+                                               y * stride);
+
+        for (uint32_t x = 0; x < width; ++x) {
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int a = src[3];
+
+            int threshold = thresholdMatrix[y % 8][x % 8] * 4;
+            ARGB argb;
+
+            if (is_gray_scale) {
+                int gray = r;
+                gray = (gray > threshold) ? 255 : 0;
+                argb = ARGB(a, gray, gray, gray);
+            } else {
+                r = (r > threshold) ? 255 : 0;
+                g = (g > threshold) ? 255 : 0;
+                b = (b > threshold) ? 255 : 0;
+                argb = ARGB(a, r, g, b);
+            }
+
+            dst[0] = argb.r;
+            dst[1] = argb.g;
+            dst[2] = argb.b;
+            dst[3] = argb.a;
+
+            dst += 4;
+            src += 4;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
+}
+
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ylilomaDitheringImpl(
+        JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    static const int ylilomaMatrix[4][4] = {
+            {1,  9,  3,  11},
+            {13, 5,  15, 7},
+            {4,  12, 2,  10},
+            {16, 8,  14, 6}
+    };
+
+    AndroidBitmapInfo sourceInfo;
+    void *sourcePixels;
+    if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &sourcePixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t width = sourceInfo.width;
+    uint32_t height = sourceInfo.height;
+    uint32_t stride = sourceInfo.stride;
+
+    jobject outputBitmap = createBitmap(env, width, height);
+
+    AndroidBitmapInfo outputInfo;
+    void *outputPixels;
+    if (AndroidBitmap_getInfo(env, outputBitmap, &outputInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, outputBitmap, &outputPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, outputBitmap);
+        return nullptr;
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
+                                               y * stride);
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
+                                               y * stride);
+
+        for (uint32_t x = 0; x < width; ++x) {
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int a = src[3];
+
+            int threshold = ylilomaMatrix[y % 4][x % 4] * 16;
+            ARGB argb;
+
+            if (is_gray_scale) {
+                int gray = r;
+                gray = (gray > threshold) ? 255 : 0;
+                argb = ARGB(a, gray, gray, gray);
+            } else {
+                r = (r > threshold) ? 255 : 0;
+                g = (g > threshold) ? 255 : 0;
+                b = (b > threshold) ? 255 : 0;
+                argb = ARGB(a, r, g, b);
+            }
+
+            dst[0] = argb.r;
+            dst[1] = argb.g;
+            dst[2] = argb.b;
+            dst[3] = argb.a;
+
+            dst += 4;
+            src += 4;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
+}

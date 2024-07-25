@@ -16,5 +16,9 @@ enum class DitheringType {
     FalseFloydSteinberg,
     LeftToRight,
     Random,
-    SimpleThreshold
+    SimpleThreshold,
+    Clustered2x2,
+    Clustered4x4,
+    Clustered8x8,
+    Yililoma
 }

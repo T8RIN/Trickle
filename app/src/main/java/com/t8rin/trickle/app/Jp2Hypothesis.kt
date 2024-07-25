@@ -108,14 +108,13 @@ fun MainActivity.Jp2Hypothesis() {
             }
         }
 
-        val scrollState = rememberScrollState()
         Row(
             modifier = Modifier.weight(1f)
         ) {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(scrollState)
+                    .verticalScroll(rememberScrollState())
             ) {
                 AsyncImage(
                     model = remember(source, isGray, colors) {
@@ -161,7 +160,7 @@ fun MainActivity.Jp2Hypothesis() {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(scrollState)
+                    .verticalScroll(rememberScrollState())
             ) {
                 DitherTool.Type.entries.forEach { type ->
                     Text(type.name)

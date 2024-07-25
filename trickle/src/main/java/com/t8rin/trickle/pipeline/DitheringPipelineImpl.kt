@@ -106,6 +106,26 @@ internal object DitheringPipelineImpl : DitheringPipeline {
             threshold = threshold,
             isGrayScale = isGrayScale
         )
+
+        DitheringType.Clustered2x2 -> clustered2x2Dithering(
+            input = input,
+            isGrayScale = isGrayScale
+        )
+
+        DitheringType.Clustered4x4 -> clustered4x4Dithering(
+            input = input,
+            isGrayScale = isGrayScale
+        )
+
+        DitheringType.Clustered8x8 -> clustered8x8Dithering(
+            input = input,
+            isGrayScale = isGrayScale
+        )
+
+        DitheringType.Yililoma -> ylilomaDithering(
+            input = input,
+            isGrayScale = isGrayScale
+        )
     }
 
     override fun ordered2By2BayerDithering(
@@ -266,6 +286,38 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         isGrayScale = isGrayScale
     ) ?: input
 
+    override fun clustered2x2Dithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap = clustered2x2DitheringImpl(
+        input = input,
+        isGrayScale = isGrayScale
+    ) ?: input
+
+    override fun clustered4x4Dithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap = clustered4x4DitheringImpl(
+        input = input,
+        isGrayScale = isGrayScale
+    ) ?: input
+
+    override fun clustered8x8Dithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap = clustered8x8DitheringImpl(
+        input = input,
+        isGrayScale = isGrayScale
+    ) ?: input
+
+    override fun ylilomaDithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap = ylilomaDitheringImpl(
+        input = input,
+        isGrayScale = isGrayScale
+    ) ?: input
+
     private external fun ordered2By2BayerImpl(
         input: Bitmap,
         threshold: Int,
@@ -360,4 +412,25 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap?
+
+    private external fun clustered2x2DitheringImpl(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap?
+
+    private external fun clustered4x4DitheringImpl(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap?
+
+    private external fun clustered8x8DitheringImpl(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap?
+
+    private external fun ylilomaDitheringImpl(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap?
+
 }

@@ -106,4 +106,24 @@ interface DitheringPipeline {
         isGrayScale: Boolean = false
     ): Bitmap
 
+    fun clustered2x2Dithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap
+
+    fun clustered4x4Dithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap
+
+    fun clustered8x8Dithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap
+
+    fun ylilomaDithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap
+
 }
