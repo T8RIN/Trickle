@@ -115,6 +115,16 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         highlightsColor = highlightsColor
     ) ?: input
 
+    override fun polkaDot(
+        input: Bitmap,
+        dotRadius: Int,
+        spacing: Int
+    ): Bitmap = polkaDotImpl(
+        input = input,
+        dotRadius = dotRadius,
+        spacing = spacing
+    ) ?: input
+
     private external fun tritoneImpl(
         input: Bitmap,
         shadowsColor: Int,
@@ -168,6 +178,12 @@ internal object EffectsPipelineImpl : EffectsPipeline {
     private external fun drawColorBehindImpl(
         input: Bitmap,
         color: Int
+    ): Bitmap?
+
+    private external fun polkaDotImpl(
+        input: Bitmap,
+        dotRadius: Int,
+        spacing: Int
     ): Bitmap?
 
 }

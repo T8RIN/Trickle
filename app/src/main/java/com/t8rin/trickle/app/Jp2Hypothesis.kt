@@ -123,11 +123,10 @@ fun MainActivity.Jp2Hypothesis() {
                             .data(source)
                             .transformations(
                                 GenericTransformation { bmp ->
-                                    Trickle.tritone(
+                                    Trickle.polkaDot(
                                         input = bmp,
-                                        shadowsColor = Color.Red.toArgb(),
-                                        middleColor = Color(0xFF1C5A6D).toArgb(),
-                                        highlightsColor = Color(0xFF2A8F67).toArgb()
+                                        dotRadius = 10,
+                                        spacing = 5
                                     )
                                 }
                             ).build()

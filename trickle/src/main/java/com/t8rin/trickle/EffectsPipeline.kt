@@ -66,4 +66,10 @@ interface EffectsPipeline {
         highlightsColor: Int
     ): Bitmap
 
+    fun polkaDot(
+        input: Bitmap,
+        dotRadius: Int,
+        spacing: Int
+    ): Bitmap
+
 }

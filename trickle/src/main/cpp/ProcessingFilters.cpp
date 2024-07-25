@@ -408,3 +408,74 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tritoneImpl(JNIEnv *env, job
 
     return outBitmap;
 }
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_polkaDotImpl(JNIEnv *env, jobject obj,
+                                                                 jobject bitmap, jint dotRadius,
+                                                                 jint spacing) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) != 0) {
+        return nullptr;
+    }
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        return nullptr;
+    }
+
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) != 0) {
+        return nullptr;
+    }
+
+    jobject newBitmap = createBitmap(env, info.width, info.height);
+
+    void *newPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, newBitmap, &newPixels)) != 0) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
+
+    int *srcPixels = (int *) pixels;
+    int *dstPixels = (int *) newPixels;
+    int width = info.width;
+    int height = info.height;
+
+    int dotDiameter = dotRadius * 2;
+    int spacingBetweenDots = dotDiameter + spacing;
+    int centerOffset = dotRadius;
+
+    for (int y = 0; y < height; y += spacingBetweenDots) {
+        for (int x = 0; x < width; x += spacingBetweenDots) {
+            int centerX = x + centerOffset;
+            int centerY = y + centerOffset;
+
+            if (centerX >= width || centerY >= height) continue;
+
+            int centerIndex = centerY * width + centerX;
+            int centerColor = srcPixels[centerIndex];
+
+            for (int dy = -dotRadius; dy <= dotRadius; dy++) {
+                for (int dx = -dotRadius; dx <= dotRadius; dx++) {
+                    int currentX = centerX + dx;
+                    int currentY = centerY + dy;
+
+                    if (currentX >= 0 && currentX < width && currentY >= 0 && currentY < height) {
+                        int distanceSquared = dx * dx + dy * dy;
+                        if (distanceSquared <= dotRadius * dotRadius) {
+                            int currentIndex = currentY * width + currentX;
+                            dstPixels[currentIndex] = centerColor;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    AndroidBitmap_unlockPixels(env, newBitmap);
+
+    return newBitmap;
+}
