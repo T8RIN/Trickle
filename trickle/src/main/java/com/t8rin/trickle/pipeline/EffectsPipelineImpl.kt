@@ -133,7 +133,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input = input,
         lutBitmap = lutBitmap,
         intensity = intensity
-    )!!
+    ) ?: input
 
     private external fun applyLutImpl(
         input: Bitmap,
