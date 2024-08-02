@@ -25,13 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
-import com.t8rin.trickle.DitheringType
 import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.TrickleUtils.generateShades
 import kotlin.random.Random
@@ -117,15 +117,20 @@ fun MainActivity.Jp2Hypothesis() {
                     .verticalScroll(rememberScrollState())
             ) {
                 AsyncImage(
-                    model = remember(source, isGray, colors) {
+                    model = remember(source, target, intensity, colors) {
                         ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
                             .data(source)
                             .transformations(
                                 GenericTransformation { bmp ->
-                                    Trickle.polkaDot(
+                                    Trickle.applyLut(
                                         input = bmp,
-                                        dotRadius = 10,
-                                        spacing = 5
+                                        lutBitmap = imageLoader.execute(
+                                            ImageRequest.Builder(this@Jp2Hypothesis)
+                                                .allowHardware(false).data(target)
+                                                .size(Size.ORIGINAL)
+                                                .build()
+                                        ).drawable!!.toBitmap(),
+                                        intensity = intensity
                                     )
                                 }
                             ).build()
@@ -134,57 +139,57 @@ fun MainActivity.Jp2Hypothesis() {
                     modifier = Modifier.height(300.dp),
                     contentDescription = null
                 )
-                DitheringType.entries.forEach { type ->
-                    Text(type.name)
-                    AsyncImage(
-                        model = remember(source, isGray, colors) {
-                            ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
-                                .data(source)
-                                .transformations(
-                                    GenericTransformation { bmp ->
-                                        Trickle.dithering(
-                                            input = bmp,
-                                            type = type,
-                                            threshold = 128,
-                                            isGrayScale = isGray
-                                        )
-                                    }
-                                ).build()
-                        },
-                        imageLoader = imageLoader,
-                        modifier = Modifier.height(300.dp),
-                        contentDescription = null
-                    )
-                }
+//                DitheringType.entries.forEach { type ->
+//                    Text(type.name)
+//                    AsyncImage(
+//                        model = remember(source, isGray, colors) {
+//                            ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+//                                .data(source)
+//                                .transformations(
+//                                    GenericTransformation { bmp ->
+//                                        Trickle.dithering(
+//                                            input = bmp,
+//                                            type = type,
+//                                            threshold = 128,
+//                                            isGrayScale = isGray
+//                                        )
+//                                    }
+//                                ).build()
+//                        },
+//                        imageLoader = imageLoader,
+//                        modifier = Modifier.height(300.dp),
+//                        contentDescription = null
+//                    )
+//                }
             }
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                DitherTool.Type.entries.forEach { type ->
-                    Text(type.name)
-                    AsyncImage(
-                        model = remember(source, isGray, colors) {
-                            ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
-                                .data(source)
-                                .transformations(
-                                    GenericTransformation { bmp ->
-                                        DitherTool(
-                                            threshold = 128,
-                                            isGrayScale = isGray
-                                        ).dither(
-                                            type = type,
-                                            src = bmp
-                                        )
-                                    }
-                                ).build()
-                        },
-                        imageLoader = imageLoader,
-                        modifier = Modifier.height(300.dp),
-                        contentDescription = null
-                    )
-                }
+//                DitherTool.Type.entries.forEach { type ->
+//                    Text(type.name)
+//                    AsyncImage(
+//                        model = remember(source, isGray, colors) {
+//                            ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+//                                .data(source)
+//                                .transformations(
+//                                    GenericTransformation { bmp ->
+//                                        DitherTool(
+//                                            threshold = 128,
+//                                            isGrayScale = isGray
+//                                        ).dither(
+//                                            type = type,
+//                                            src = bmp
+//                                        )
+//                                    }
+//                                ).build()
+//                        },
+//                        imageLoader = imageLoader,
+//                        modifier = Modifier.height(300.dp),
+//                        contentDescription = null
+//                    )
+//                }
             }
         }
 

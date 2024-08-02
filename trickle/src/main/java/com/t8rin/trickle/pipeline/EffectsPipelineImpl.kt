@@ -125,6 +125,22 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         spacing = spacing
     ) ?: input
 
+    override fun applyLut(
+        input: Bitmap,
+        lutBitmap: Bitmap,
+        intensity: Float
+    ): Bitmap = applyLutImpl(
+        input = input,
+        lutBitmap = lutBitmap,
+        intensity = intensity
+    )!!
+
+    private external fun applyLutImpl(
+        input: Bitmap,
+        lutBitmap: Bitmap,
+        intensity: Float
+    ): Bitmap?
+
     private external fun tritoneImpl(
         input: Bitmap,
         shadowsColor: Int,

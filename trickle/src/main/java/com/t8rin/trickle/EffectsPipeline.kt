@@ -72,4 +72,10 @@ interface EffectsPipeline {
         spacing: Int
     ): Bitmap
 
+    fun applyLut(
+        input: Bitmap,
+        lutBitmap: Bitmap,
+        intensity: Float
+    ): Bitmap
+
 }

@@ -479,3 +479,81 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_polkaDotImpl(JNIEnv *env, jo
 
     return newBitmap;
 }
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_applyLutImpl(
+        JNIEnv *env, jobject thiz, jobject input, jobject lutBitmap, jfloat intensity) {
+
+    AndroidBitmapInfo srcInfo;
+    void *srcPixels;
+    if (AndroidBitmap_getInfo(env, input, &srcInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &srcPixels) < 0) {
+        return nullptr;
+    }
+
+    AndroidBitmapInfo lutInfo;
+    void *lutPixels;
+    if (AndroidBitmap_getInfo(env, lutBitmap, &lutInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, lutBitmap, &lutPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    uint32_t srcWidth = srcInfo.width;
+    uint32_t srcHeight = srcInfo.height;
+    uint32_t lutWidth = lutInfo.width;
+
+    jobject outputBitmap = createBitmap(env, srcWidth, srcHeight);
+    if (outputBitmap == nullptr) {
+        AndroidBitmap_unlockPixels(env, input);
+        AndroidBitmap_unlockPixels(env, lutBitmap);
+        return nullptr;
+    }
+
+    void *outputPixels;
+    if (AndroidBitmap_lockPixels(env, outputBitmap, &outputPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        AndroidBitmap_unlockPixels(env, lutBitmap);
+        return nullptr;
+    }
+
+    for (uint32_t y = 0; y < srcHeight; ++y) {
+        for (uint32_t x = 0; x < srcWidth; ++x) {
+            uint32_t index = y * srcWidth + x;
+            uint32_t pixel = ((uint32_t *) srcPixels)[index];
+
+            uint8_t alpha = (pixel >> 24) & 0xff;
+            uint8_t b = ((pixel >> 16) & 0xff) / 4;
+            uint8_t g = ((pixel >> 8) & 0xff) / 4;
+            uint8_t r = (pixel & 0xff) / 4;
+
+            uint32_t lutX = (b % 8) * 64 + r;
+            uint32_t lutY = (b / 8) * 64 + g;
+            uint32_t lutIndex = lutY * lutWidth + lutX;
+
+            uint32_t lutPixel = ((uint32_t *) lutPixels)[lutIndex];
+            uint8_t lutB = (lutPixel >> 16) & 0xff;
+            uint8_t lutG = (lutPixel >> 8) & 0xff;
+            uint8_t lutR = lutPixel & 0xff;
+
+            auto finalR = static_cast<uint8_t>(std::round(r * 4 + intensity * (lutR - r * 4)));
+            auto finalG = static_cast<uint8_t>(std::round(g * 4 + intensity * (lutG - g * 4)));
+            auto finalB = static_cast<uint8_t>(std::round(b * 4 + intensity * (lutB - b * 4)));
+
+            ((uint32_t *) outputPixels)[index] =
+                    (alpha << 24) | (finalB << 16) | (finalG << 8) | finalR;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, lutBitmap);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
+}
