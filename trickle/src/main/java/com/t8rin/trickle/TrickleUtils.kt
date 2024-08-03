@@ -1,6 +1,9 @@
 package com.t8rin.trickle
 
+import android.content.Context
 import android.graphics.Color
+import android.net.Uri
+import java.io.File
 
 object TrickleUtils {
 
@@ -30,6 +33,14 @@ object TrickleUtils {
         shadedHsv[2] = valueFactor
 
         return shadedHsv
+    }
+
+    fun getAbsolutePath(uri: Uri, context: Context): String {
+        val file = File(context.filesDir, "lut.${uri.toString().takeLastWhile { it != '.' }}")
+        context.contentResolver.openInputStream(uri)!!.use {
+            it.copyTo(file.outputStream())
+        }
+        return file.absolutePath
     }
 
 }

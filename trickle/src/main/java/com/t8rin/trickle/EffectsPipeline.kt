@@ -1,6 +1,7 @@
 package com.t8rin.trickle
 
 import android.graphics.Bitmap
+import android.net.Uri
 
 interface EffectsPipeline {
 
@@ -75,6 +76,12 @@ interface EffectsPipeline {
     fun applyLut(
         input: Bitmap,
         lutBitmap: Bitmap,
+        intensity: Float
+    ): Bitmap
+
+    fun applyCubeLut(
+        input: Bitmap,
+        cubeLutPath: String,
         intensity: Float
     ): Bitmap
 

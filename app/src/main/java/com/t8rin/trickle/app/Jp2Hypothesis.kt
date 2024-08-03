@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -33,8 +33,10 @@ import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
 import com.t8rin.trickle.Trickle
+import com.t8rin.trickle.TrickleUtils
 import com.t8rin.trickle.TrickleUtils.generateShades
 import kotlin.random.Random
+
 
 @Composable
 fun MainActivity.Jp2Hypothesis() {
@@ -61,8 +63,13 @@ fun MainActivity.Jp2Hypothesis() {
             target = it?.toString() ?: ""
         }
 
+    val docuemntPicker =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) {
+            target = it?.toString() ?: ""
+        }
+
     val pickImage2: () -> Unit = {
-        imagePicker2.launch(PickVisualMediaRequest())
+        docuemntPicker.launch(arrayOf("*/*"))
     }
 
     var intensity by remember {
@@ -122,14 +129,12 @@ fun MainActivity.Jp2Hypothesis() {
                             .data(source)
                             .transformations(
                                 GenericTransformation { bmp ->
-                                    Trickle.applyLut(
+                                    Trickle.applyCubeLut(
                                         input = bmp,
-                                        lutBitmap = imageLoader.execute(
-                                            ImageRequest.Builder(this@Jp2Hypothesis)
-                                                .allowHardware(false).data(target)
-                                                .size(Size.ORIGINAL)
-                                                .build()
-                                        ).drawable!!.toBitmap(),
+                                        cubeLutPath = TrickleUtils.getAbsolutePath(
+                                            uri = target.toUri(),
+                                            context = this@Jp2Hypothesis
+                                        ),
                                         intensity = intensity
                                     )
                                 }

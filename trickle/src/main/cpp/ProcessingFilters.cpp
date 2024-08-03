@@ -14,6 +14,15 @@
 #include "ColorUtils.h"
 #include "BitmapUtils.h"
 #include "cairo.h"
+#include <fstream>
+#include <vector>
+#include <sstream>
+#include <string>
+#include <vector>
+#include "Eigen/Dense"
+#include "unsupported/Eigen/CXX11/Tensor"
+
+using namespace Eigen;
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_noiseImpl(
@@ -553,6 +562,179 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_applyLutImpl(
 
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, lutBitmap);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
+}
+
+bool parseCubeFile(const std::string &filename, Tensor<float, 4> &lut, int &lutSize) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    std::string line;
+
+    int index = 0;
+
+    while (std::getline(file, line)) {
+        // Ignore comments and empty lines
+        if (line.empty() || line[0] == '#' || line == "\r") {
+            continue;
+        }
+
+        std::istringstream iss(line);
+        std::string keyword;
+        iss >> keyword;
+
+        // Parse metadata
+        if (keyword == "TITLE") {
+            // Handle TITLE if necessary
+        } else if (keyword == "DOMAIN_MIN") {
+            // Handle DOMAIN_MIN if necessary
+        } else if (keyword == "DOMAIN_MAX") {
+            // Handle DOMAIN_MAX if necessary
+        } else if (keyword == "LUT_3D_SIZE") {
+            iss >> lutSize;
+            lut = Tensor<float, 4>(lutSize, lutSize, lutSize, 3);
+        } else {
+            // Parse LUT data
+            float r, g, b;
+            iss.seekg(0); // Reset stream position to the beginning
+            iss >> r >> g >> b;
+
+            // Calculate the position in the LUT
+            int z = index % lutSize;
+            int y = (index / lutSize) % lutSize;
+            int x = index / (lutSize * lutSize);
+
+            // Store the values in the LUT
+            lut(x, y, z, 0) = r;
+            lut(x, y, z, 1) = g;
+            lut(x, y, z, 2) = b;
+            index += 1;
+        }
+    }
+
+    file.close();
+    return true;
+}
+
+
+// Define the applyLUT function (reuse from the previous example)
+Vector3f getColor(const Tensor<float, 4> &lut, const Vector3f &color) {
+    size_t lutSize = lut.dimension(0);
+
+    float r = color(0) * static_cast<float>((lutSize - 1));
+    float g = color(1) * static_cast<float>((lutSize - 1));
+    float b = color(2) * static_cast<float>((lutSize - 1));
+
+    int r0 = static_cast<int>(r);
+    int g0 = static_cast<int>(g);
+    int b0 = static_cast<int>(b);
+
+    int r1 = std::min(static_cast<int>(r0 + 1), static_cast<int>(lutSize - 1));
+    int g1 = std::min(static_cast<int>(g0 + 1), static_cast<int>(lutSize - 1));
+    int b1 = std::min(static_cast<int>(b0 + 1), static_cast<int>(lutSize - 1));
+
+    float dr = r - static_cast<float>(r0);
+    float dg = g - static_cast<float>(g0);
+    float db = b - static_cast<float>(b0);
+
+    Vector3f c000(lut(r0, g0, b0, 0), lut(r0, g0, b0, 1), lut(r0, g0, b0, 2));
+    Vector3f c001(lut(r0, g0, b1, 0), lut(r0, g0, b1, 1), lut(r0, g0, b1, 2));
+    Vector3f c010(lut(r0, g1, b0, 0), lut(r0, g1, b0, 1), lut(r0, g1, b0, 2));
+    Vector3f c011(lut(r0, g1, b1, 0), lut(r0, g1, b1, 1), lut(r0, g1, b1, 2));
+    Vector3f c100(lut(r1, g0, b0, 0), lut(r1, g0, b0, 1), lut(r1, g0, b0, 2));
+    Vector3f c101(lut(r1, g0, b1, 0), lut(r1, g0, b1, 1), lut(r1, g0, b1, 2));
+    Vector3f c110(lut(r1, g1, b0, 0), lut(r1, g1, b0, 1), lut(r1, g1, b0, 2));
+    Vector3f c111(lut(r1, g1, b1, 0), lut(r1, g1, b1, 1), lut(r1, g1, b1, 2));
+
+    Vector3f c00 = c000 * (1 - db) + c001 * db;
+    Vector3f c01 = c010 * (1 - db) + c011 * db;
+    Vector3f c10 = c100 * (1 - db) + c101 * db;
+    Vector3f c11 = c110 * (1 - db) + c111 * db;
+
+    Vector3f c0 = c00 * (1 - dg) + c01 * dg;
+    Vector3f c1 = c10 * (1 - dg) + c11 * dg;
+
+    Vector3f c = c0 * (1 - dr) + c1 * dr;
+
+    return c;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_applyCubeLutImpl(
+        JNIEnv *env, jobject thiz, jobject input, jstring cubeLutPath, jfloat intensity) {
+
+    const char *lutData = env->GetStringUTFChars(cubeLutPath, nullptr);
+    if (lutData == nullptr) {
+        return nullptr;
+    }
+
+
+    int lutSize;
+    Tensor<float, 4> lut;
+
+    if (!parseCubeFile((std::string(lutData)), lut, lutSize)) {
+        return nullptr;
+    }
+
+    AndroidBitmapInfo srcInfo;
+    void *srcPixels;
+    if (AndroidBitmap_getInfo(env, input, &srcInfo) < 0) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &srcPixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t srcWidth = srcInfo.width;
+    uint32_t srcHeight = srcInfo.height;
+
+    jobject outputBitmap = createBitmap(env, srcWidth, srcHeight);
+    if (outputBitmap == nullptr) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    void *outputPixels;
+    if (AndroidBitmap_lockPixels(env, outputBitmap, &outputPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    for (uint32_t y = 0; y < srcHeight; ++y) {
+        for (uint32_t x = 0; x < srcWidth; ++x) {
+            uint32_t index = y * srcWidth + x;
+            uint32_t pixel = ((uint32_t *) srcPixels)[index];
+
+            uint8_t alpha = (pixel >> 24) & 0xff;
+            float r = ((pixel >> 16) & 0xff);
+            float g = ((pixel >> 8) & 0xff);
+            float b = (pixel & 0xff);
+
+            Eigen::Vector3f prv = {r / 255.0f, g / 255.0f, b / 255.0f};
+            auto color = getColor(lut, prv);
+
+            int lutR = color.z() * 255;
+            int lutG = color.y() * 255;
+            int lutB = color.x() * 255;
+
+            uint8_t finalR = static_cast<uint8_t>(std::round(
+                    (r) * (1.0f - intensity) + lutR * intensity));
+            uint8_t finalG = static_cast<uint8_t>(std::round(
+                    (g) * (1.0f - intensity) + lutG * intensity));
+            uint8_t finalB = static_cast<uint8_t>(std::round(
+                    (b) * (1.0f - intensity) + lutB * intensity));
+
+            ((uint32_t *) outputPixels)[index] =
+                    (alpha << 24) | (finalR << 16) | (finalG << 8) | finalB;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
     return outputBitmap;

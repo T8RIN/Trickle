@@ -101,6 +101,7 @@ set_target_properties(
 
 include_directories(
         lowpoly/cairo/
+        eigen/
 )
 
 # Searches for a specified prebuilt library and stores the path as a

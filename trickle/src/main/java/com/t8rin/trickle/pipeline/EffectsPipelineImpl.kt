@@ -1,6 +1,7 @@
 package com.t8rin.trickle.pipeline
 
 import android.graphics.Bitmap
+import android.net.Uri
 import com.t8rin.trickle.EffectsPipeline
 
 internal object EffectsPipelineImpl : EffectsPipeline {
@@ -134,6 +135,22 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         lutBitmap = lutBitmap,
         intensity = intensity
     ) ?: input
+
+    override fun applyCubeLut(
+        input: Bitmap,
+        cubeLutPath: String,
+        intensity: Float
+    ): Bitmap = applyCubeLutImpl(
+        input = input,
+        cubeLutPath = cubeLutPath,
+        intensity = intensity
+    ) ?: input
+
+    private external fun applyCubeLutImpl(
+        input: Bitmap,
+        cubeLutPath: String,
+        intensity: Float
+    ): Bitmap?
 
     private external fun applyLutImpl(
         input: Bitmap,
