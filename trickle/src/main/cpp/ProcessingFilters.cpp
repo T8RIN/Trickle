@@ -568,56 +568,63 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_applyLutImpl(
 }
 
 bool parseCubeFile(const std::string &filename, Tensor<float, 4> &lut, int &lutSize) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
+    try {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            return false;
+        }
+
+        std::string line;
+
+        int index = 0;
+
+        while (std::getline(file, line)) {
+            // Ignore comments and empty lines
+            if (line.empty() || line[0] == '#' || line == "\r") {
+                continue;
+            }
+
+            std::istringstream iss(line);
+            std::string keyword;
+            iss >> keyword;
+
+            // Parse metadata
+            if (keyword == "TITLE") {
+                // Handle TITLE if necessary
+            } else if (keyword == "DOMAIN_MIN") {
+                // Handle DOMAIN_MIN if necessary
+            } else if (keyword == "DOMAIN_MAX") {
+                // Handle DOMAIN_MAX if necessary
+            } else if (keyword == "LUT_3D_SIZE") {
+                iss >> lutSize;
+                lut = Tensor<float, 4>(lutSize, lutSize, lutSize, 3);
+            } else {
+                if (lutSize <= 0) {
+                    return false;
+                }
+                // Parse LUT data
+                float r, g, b;
+                iss.seekg(0); // Reset stream position to the beginning
+                iss >> r >> g >> b;
+
+                // Calculate the position in the LUT
+                int z = index % lutSize;
+                int y = (index / lutSize) % lutSize;
+                int x = index / (lutSize * lutSize);
+
+                // Store the values in the LUT
+                lut(x, y, z, 0) = r;
+                lut(x, y, z, 1) = g;
+                lut(x, y, z, 2) = b;
+                index += 1;
+            }
+        }
+
+        file.close();
+        return true;
+    } catch (std::exception &e) {
         return false;
     }
-
-    std::string line;
-
-    int index = 0;
-
-    while (std::getline(file, line)) {
-        // Ignore comments and empty lines
-        if (line.empty() || line[0] == '#' || line == "\r") {
-            continue;
-        }
-
-        std::istringstream iss(line);
-        std::string keyword;
-        iss >> keyword;
-
-        // Parse metadata
-        if (keyword == "TITLE") {
-            // Handle TITLE if necessary
-        } else if (keyword == "DOMAIN_MIN") {
-            // Handle DOMAIN_MIN if necessary
-        } else if (keyword == "DOMAIN_MAX") {
-            // Handle DOMAIN_MAX if necessary
-        } else if (keyword == "LUT_3D_SIZE") {
-            iss >> lutSize;
-            lut = Tensor<float, 4>(lutSize, lutSize, lutSize, 3);
-        } else {
-            // Parse LUT data
-            float r, g, b;
-            iss.seekg(0); // Reset stream position to the beginning
-            iss >> r >> g >> b;
-
-            // Calculate the position in the LUT
-            int z = index % lutSize;
-            int y = (index / lutSize) % lutSize;
-            int x = index / (lutSize * lutSize);
-
-            // Store the values in the LUT
-            lut(x, y, z, 0) = r;
-            lut(x, y, z, 1) = g;
-            lut(x, y, z, 2) = b;
-            index += 1;
-        }
-    }
-
-    file.close();
-    return true;
 }
 
 
@@ -674,7 +681,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_applyCubeLutImpl(
     }
 
 
-    int lutSize;
+    int lutSize = 0;
     Tensor<float, 4> lut;
 
     if (!parseCubeFile((std::string(lutData)), lut, lutSize)) {
