@@ -1,8 +1,9 @@
 package com.t8rin.trickle.pipeline
 
 import android.graphics.Bitmap
-import android.net.Uri
+import android.graphics.Color
 import com.t8rin.trickle.EffectsPipeline
+import com.t8rin.trickle.PopArtBlendMode
 
 internal object EffectsPipelineImpl : EffectsPipeline {
 
@@ -145,6 +146,58 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         cubeLutPath = cubeLutPath,
         intensity = intensity
     ) ?: input
+
+    override fun popArt(
+        input: Bitmap,
+        color: Int,
+        blendMode: PopArtBlendMode,
+        strength: Float
+    ): Bitmap {
+        val (firstColor, secondColor, thirdColor, fourthColor) = squareHarmony(color)
+        return popArtImpl(
+            input = input,
+            firstColor = firstColor,
+            secondColor = secondColor,
+            thirdColor = thirdColor,
+            fourthColor = fourthColor,
+            blendMode = blendMode.ordinal,
+            strength = strength
+        ) ?: input
+    }
+
+    private fun squareHarmony(color: Int): List<Int> {
+        val (h, s, v) = color.toHSV()
+        return listOf(
+            hsvToColor(h, s, v),
+            hsvToColor((h + 90) % 360, s, v),
+            hsvToColor((h + 180) % 360, s, v),
+            hsvToColor((h + 270) % 360, s, v)
+        )
+    }
+
+    private fun Int.toHSV(): FloatArray {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(this, hsv)
+        return hsv
+    }
+
+    private fun hsvToColor(
+        h: Float,
+        s: Float,
+        v: Float
+    ): Int {
+        return Color.HSVToColor(floatArrayOf(h, s, v))
+    }
+
+    private external fun popArtImpl(
+        input: Bitmap,
+        firstColor: Int,
+        secondColor: Int,
+        thirdColor: Int,
+        fourthColor: Int,
+        blendMode: Int,
+        strength: Float
+    ): Bitmap?
 
     private external fun applyCubeLutImpl(
         input: Bitmap,

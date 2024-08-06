@@ -746,3 +746,152 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_applyCubeLutImpl(
 
     return outputBitmap;
 }
+
+cairo_surface_t *scale_to_half(cairo_surface_t *s, int orig_width, int
+orig_height) {
+    cairo_surface_t *result = cairo_surface_create_similar(s,
+                                                           cairo_surface_get_content(s),
+                                                           orig_width / 2, orig_height / 2);
+    cairo_t *cr = cairo_create(result);
+    cairo_scale(cr, 0.5, 0.5);
+    cairo_set_source_surface(cr, s, 0, 0);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+    return result;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_popArtImpl(JNIEnv *env, jobject thiz,
+                                                               jobject input,
+                                                               jint firstColor,
+                                                               jint secondColor,
+                                                               jint thirdColor,
+                                                               jint fourthColor,
+                                                               jint blendMode,
+                                                               jfloat strength) {
+    AndroidBitmapInfo info;
+    if (AndroidBitmap_getInfo(env, input, &info) < 0) {
+        return nullptr;
+    }
+
+    void *pixels;
+    if (AndroidBitmap_lockPixels(env, input, &pixels) < 0) {
+        return nullptr;
+    }
+
+    int width = (int) info.width;
+    int height = (int) info.height;
+    int stride = (int) info.stride;
+
+    jobject newImage = createBitmap(env, width, height);
+    if (newImage == nullptr) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    void *newPixels;
+    if (AndroidBitmap_lockPixels(env, newImage, &newPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    memset(newPixels, 0, stride * height);
+
+    cairo_surface_t *surface = cairo_image_surface_create_for_data(
+            reinterpret_cast<unsigned char *>(newPixels),
+            CAIRO_FORMAT_ARGB32,
+            width,
+            height,
+            stride
+    );
+
+    cairo_surface_t *image = cairo_image_surface_create_for_data(
+            reinterpret_cast<unsigned char *>(pixels),
+            CAIRO_FORMAT_ARGB32,
+            width,
+            height,
+            stride
+    );
+
+    cairo_t *cr = cairo_create(surface);
+
+
+    image = scale_to_half(image, width, height);
+
+    ARGB argb1 = ColorToARGB(firstColor);
+    ARGB argb2 = ColorToARGB(secondColor);
+    ARGB argb3 = ColorToARGB(thirdColor);
+    ARGB argb4 = ColorToARGB(fourthColor);
+
+    //MULTIPLY
+    //COLOR_BURN
+    //SOFT_LIGHT
+    //HSL_COLOR
+    //HSL_HUE
+    //DIFFERENCE
+    _cairo_operator method;
+
+    switch (blendMode) {
+        case 0:
+            method = CAIRO_OPERATOR_MULTIPLY;
+            break;
+        case 1:
+            method = CAIRO_OPERATOR_COLOR_BURN;
+            break;
+        case 2:
+            method = CAIRO_OPERATOR_SOFT_LIGHT;
+            break;
+        case 3:
+            method = CAIRO_OPERATOR_HSL_COLOR;
+            break;
+        case 4:
+            method = CAIRO_OPERATOR_HSL_HUE;
+            break;
+        case 5:
+            method = CAIRO_OPERATOR_DIFFERENCE;
+            break;
+        default:
+            method = CAIRO_OPERATOR_MULTIPLY;
+            break;
+    }
+
+    cairo_set_source_surface(cr, image, 0.0, 0.0);
+    cairo_paint(cr);
+    cairo_set_source_rgba(cr, argb1.b / 255.0, argb1.g / 255.0, argb1.r / 255.0, strength);
+    cairo_rectangle(cr, 0.0, 0.0, width / 2, height / 2);
+    cairo_set_operator(cr, method);
+    cairo_fill(cr);
+
+    cairo_set_source_surface(cr, image, width / 2, 0.0);
+    cairo_paint(cr);
+    cairo_set_source_rgba(cr, argb2.r / 255.0, argb2.g / 255.0, argb2.b / 255.0, strength);
+    cairo_rectangle(cr, width / 2, 0.0, width / 2, height / 2);
+    cairo_set_operator(cr, method);
+    cairo_fill(cr);
+
+    cairo_set_source_surface(cr, image, 0.0, height / 2);
+    cairo_paint(cr);
+    cairo_set_source_rgba(cr, argb3.g / 255.0, argb3.b / 255.0, argb3.r / 255.0, strength);
+    cairo_rectangle(cr, 0.0, height / 2, width / 2, height / 2);
+    cairo_set_operator(cr, method);
+    cairo_fill(cr);
+
+    cairo_set_source_surface(cr, image, width / 2, height / 2);
+    cairo_paint(cr);
+    cairo_set_source_rgba(cr, argb4.g / 255.0, argb4.r / 255.0, argb4.b / 255.0, strength);
+    cairo_rectangle(cr, width / 2, height / 2, width / 2, height / 2);
+    cairo_set_operator(cr, method);
+    cairo_fill(cr);
+
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+
+    cairo_surface_destroy(image);
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, newImage);
+
+    return newImage;
+}

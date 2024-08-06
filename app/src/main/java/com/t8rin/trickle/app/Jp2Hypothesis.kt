@@ -25,15 +25,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
+import com.t8rin.trickle.PopArtBlendMode
 import com.t8rin.trickle.Trickle
-import com.t8rin.trickle.TrickleUtils
 import com.t8rin.trickle.TrickleUtils.generateShades
 import kotlin.random.Random
 
@@ -73,6 +72,9 @@ fun MainActivity.Jp2Hypothesis() {
     }
 
     var intensity by remember {
+        mutableStateOf(1f)
+    }
+    var colorValue by remember {
         mutableStateOf(1f)
     }
 
@@ -124,18 +126,16 @@ fun MainActivity.Jp2Hypothesis() {
                     .verticalScroll(rememberScrollState())
             ) {
                 AsyncImage(
-                    model = remember(source, target, intensity, colors) {
+                    model = remember(source, target, intensity, colorValue, colors) {
                         ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
                             .data(source)
                             .transformations(
                                 GenericTransformation { bmp ->
-                                    Trickle.applyCubeLut(
+                                    Trickle.popArt(
                                         input = bmp,
-                                        cubeLutPath = TrickleUtils.getAbsolutePath(
-                                            uri = target.toUri(),
-                                            context = this@Jp2Hypothesis
-                                        ),
-                                        intensity = intensity
+                                        color = Color((colorValue * 100000).toInt()).toArgb(),
+                                        blendMode = PopArtBlendMode.DIFFERENCE,
+                                        strength = intensity
                                     )
                                 }
                             ).build()
@@ -207,6 +207,7 @@ fun MainActivity.Jp2Hypothesis() {
             }
             Slider(value = intensity, onValueChange = { intensity = it }, valueRange = 0f..1f)
         }
+        Slider(value = colorValue, onValueChange = { colorValue = it }, valueRange = 0f..1f)
     }
 }
 

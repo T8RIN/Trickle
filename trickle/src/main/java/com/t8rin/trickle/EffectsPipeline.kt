@@ -1,7 +1,6 @@
 package com.t8rin.trickle
 
 import android.graphics.Bitmap
-import android.net.Uri
 
 interface EffectsPipeline {
 
@@ -83,6 +82,13 @@ interface EffectsPipeline {
         input: Bitmap,
         cubeLutPath: String,
         intensity: Float
+    ): Bitmap
+
+    fun popArt(
+        input: Bitmap,
+        color: Int,
+        blendMode: PopArtBlendMode,
+        strength: Float
     ): Bitmap
 
 }
