@@ -47,7 +47,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         threshold: Int
     ): Bitmap {
-        val result = input.copy(input.config, true)
+        val result = input.copy(input.config ?: Bitmap.Config.ARGB_8888, true)
         noiseImpl(
             srcBitmap = result,
             threshold = threshold
@@ -60,7 +60,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         threshold: Float,
         strength: Float
     ): Bitmap {
-        val result = input.copy(input.config, true)
+        val result = input.copy(input.config ?: Bitmap.Config.ARGB_8888, true)
         shuffleBlurImpl(
             srcBitmap = result,
             threshold = threshold,
