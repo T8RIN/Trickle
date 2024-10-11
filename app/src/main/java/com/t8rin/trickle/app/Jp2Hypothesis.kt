@@ -130,7 +130,7 @@ fun MainActivity.Jp2Hypothesis() {
                             .data(source)
                             .transformations(
                                 GenericTransformation { bmp ->
-                                    List(100) { it }.fold(bmp) { acc, i ->
+                                    List(4) { it }.fold(bmp) { acc, i ->
                                         when (i % 5) {
                                             0 -> Trickle.hdr(acc)
                                             1 -> Trickle.tv(acc)
