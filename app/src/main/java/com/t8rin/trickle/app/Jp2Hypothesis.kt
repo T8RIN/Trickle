@@ -31,7 +31,6 @@ import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
-import com.t8rin.trickle.PopArtBlendMode
 import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.TrickleUtils.generateShades
 import kotlin.random.Random
@@ -131,12 +130,15 @@ fun MainActivity.Jp2Hypothesis() {
                             .data(source)
                             .transformations(
                                 GenericTransformation { bmp ->
-                                    Trickle.popArt(
-                                        input = bmp,
-                                        color = Color((colorValue * 100000).toInt()).toArgb(),
-                                        blendMode = PopArtBlendMode.DIFFERENCE,
-                                        strength = intensity
-                                    )
+                                    List(100) { it }.fold(bmp) { acc, i ->
+                                        when (i % 5) {
+                                            0 -> Trickle.hdr(acc)
+                                            1 -> Trickle.tv(acc)
+                                            2 -> Trickle.oil(acc, 5)
+                                            3 -> Trickle.sketch(acc)
+                                            else -> Trickle.gotham(acc)
+                                        }
+                                    }
                                 }
                             ).build()
                     },

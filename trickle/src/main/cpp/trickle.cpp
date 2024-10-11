@@ -35,7 +35,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_oilImpl(JNIEnv *env,
     OilFilterOptions options(oilRange);
 
     int *result = PROC_IMAGE_WITH_OPTIONS(env, pixels, width, height, OilFilter, options);
-    return createBitmap(env, result, width, height, stride, true);
+    return createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
@@ -57,7 +57,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tvImpl(JNIEnv *env, jobject 
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, TvFilter);
-    return createBitmap(env, result, width, height, stride, true);
+    return createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
@@ -79,7 +79,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_hdrImpl(JNIEnv *env, jobject
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, HDRFilter);
-    return createBitmap(env, result, width, height, stride, true);
+    return createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
@@ -102,7 +102,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_sketchImpl(JNIEnv *env, jobj
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, SketchFilter);
 
-    return createBitmap(env, result, width, height, stride, true);
+    return createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
@@ -124,7 +124,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_gothamImpl(JNIEnv *env, jobj
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, GothamFilter);
-    return createBitmap(env, result, width, height, stride, true);
+    return createBitmap(env, result, width, height, stride);
 }
 extern "C"
 JNIEXPORT jobject JNICALL
