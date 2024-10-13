@@ -49,5 +49,9 @@ Java_com_t8rin_trickle_TrickleUtils_checkHasAlphaImpl(JNIEnv *env, jobject thiz,
     uint32_t height = info.height;
     uint32_t stride = info.stride;
 
-    return isImageHasAlpha(reinterpret_cast<uint8_t *>(pixels), stride, width, height);
+    bool result = isImageHasAlpha(reinterpret_cast<uint8_t *>(pixels), stride, width, height);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    return result;
 }
