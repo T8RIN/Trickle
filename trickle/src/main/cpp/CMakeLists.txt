@@ -37,6 +37,7 @@ add_library( # Sets the name of the library.
         ColorUtils.cpp
         BitmapUtils.cpp
         Dithering.cpp
+        ScanAlpha.cpp
         lowpoly/lowpoly-lib.cpp
         lowpoly/sobel.c
         lowpoly/delaunay.c

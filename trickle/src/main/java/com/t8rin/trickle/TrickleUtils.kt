@@ -1,6 +1,7 @@
 package com.t8rin.trickle
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import java.io.File
@@ -42,5 +43,9 @@ object TrickleUtils {
         }
         return file.absolutePath
     }
+
+    fun Bitmap.checkHasAlpha(): Boolean = checkHasAlphaImpl(this)
+
+    private external fun checkHasAlphaImpl(bitmap: Bitmap): Boolean
 
 }
