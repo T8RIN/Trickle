@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import java.io.File
+import kotlin.random.Random
 
 object TrickleUtils {
 
@@ -37,7 +38,10 @@ object TrickleUtils {
     }
 
     fun getAbsolutePath(uri: Uri, context: Context): String {
-        val file = File(context.cacheDir, "lut.${uri.toString().takeLastWhile { it != '.' }}")
+        val file = File(
+            context.cacheDir,
+            "temp${Random.nextInt()}.${uri.toString().takeLastWhile { it != '.' }}"
+        )
         context.contentResolver.openInputStream(uri)!!.use {
             it.copyTo(file.outputStream())
         }
