@@ -6,25 +6,25 @@ androidCompileSdk = "35"
 jvmTarget = "17"
 compose-compiler = "1.5.15"
 
-libVersion = "1.1.6"
+libVersion = "1.1.7"
 
 paletteKtx = "1.0.0"
-composeVersion = "1.7.3"
+composeVersion = "1.7.4"
 detekt = "1.23.7"
 detektCompose = "0.4.5"
 
 kotlin = "1.9.25"
-agp = "8.7.0"
+agp = "8.7.1"
 
 coroutines = "1.9.0"
 appCompat = "1.7.0"
-composeBom = "2024.09.03"
+composeBom = "2024.10.00"
 material3 = "1.3.0"
 ksp = "1.9.25-1.0.20"
 coil = "2.7.0"
 
-androidxCore = "1.15.0-beta01"
-androidxLifecycle = "2.9.0-alpha04"
+androidxCore = "1.15.0-rc01"
+androidxLifecycle = "2.9.0-alpha05"
 desugaring = "2.1.2"
 activityCompose = "1.10.0-alpha02"
 

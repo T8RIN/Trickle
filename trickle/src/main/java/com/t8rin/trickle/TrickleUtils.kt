@@ -37,7 +37,7 @@ object TrickleUtils {
     }
 
     fun getAbsolutePath(uri: Uri, context: Context): String {
-        val file = File(context.filesDir, "lut.${uri.toString().takeLastWhile { it != '.' }}")
+        val file = File(context.cacheDir, "lut.${uri.toString().takeLastWhile { it != '.' }}")
         context.contentResolver.openInputStream(uri)!!.use {
             it.copyTo(file.outputStream())
         }
