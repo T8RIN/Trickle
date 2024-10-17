@@ -23,10 +23,16 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_oilImpl(JNIEnv *env,
     int lock;
 
     lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     uint32_t width = info.width;
     uint32_t height = info.height;
@@ -35,6 +41,9 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_oilImpl(JNIEnv *env,
     OilFilterOptions options(oilRange);
 
     int *result = PROC_IMAGE_WITH_OPTIONS(env, pixels, width, height, OilFilter, options);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
     return createBitmap(env, result, width, height, stride);
 }
 
@@ -47,16 +56,25 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tvImpl(JNIEnv *env, jobject 
     int lock;
 
     lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     uint32_t width = info.width;
     uint32_t height = info.height;
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, TvFilter);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
     return createBitmap(env, result, width, height, stride);
 }
 
@@ -69,16 +87,25 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_hdrImpl(JNIEnv *env, jobject
     int lock;
 
     lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     uint32_t width = info.width;
     uint32_t height = info.height;
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, HDRFilter);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
     return createBitmap(env, result, width, height, stride);
 }
 
@@ -91,16 +118,24 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_sketchImpl(JNIEnv *env, jobj
     int lock;
 
     lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     uint32_t width = info.width;
     uint32_t height = info.height;
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, SketchFilter);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
 
     return createBitmap(env, result, width, height, stride);
 }
@@ -114,16 +149,25 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_gothamImpl(JNIEnv *env, jobj
     int lock;
 
     lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     uint32_t width = info.width;
     uint32_t height = info.height;
     uint32_t stride = info.stride;
 
     int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, GothamFilter);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
     return createBitmap(env, result, width, height, stride);
 }
 extern "C"

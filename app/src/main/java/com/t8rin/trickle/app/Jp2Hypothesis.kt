@@ -129,17 +129,21 @@ fun MainActivity.Jp2Hypothesis() {
                         ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
                             .data(source)
                             .transformations(
-                                GenericTransformation { bmp ->
-                                    List(4) { it }.fold(bmp) { acc, i ->
-                                        when (i % 5) {
-                                            0 -> Trickle.hdr(acc)
-                                            1 -> Trickle.tv(acc)
-                                            2 -> Trickle.oil(acc, 5)
-                                            3 -> Trickle.sketch(acc)
-                                            else -> Trickle.gotham(acc)
+                                if (intensity == 1f) {
+                                    listOf(
+                                        GenericTransformation { bmp ->
+                                            List(4) { it }.fold(bmp) { acc, i ->
+                                                when (i % 5) {
+                                                    0 -> Trickle.hdr(acc)
+                                                    1 -> Trickle.tv(acc)
+                                                    2 -> Trickle.oil(acc, 5)
+                                                    3 -> Trickle.sketch(acc)
+                                                    else -> Trickle.gotham(acc)
+                                                }
+                                            }
                                         }
-                                    }
-                                }
+                                    )
+                                } else emptyList()
                             ).build()
                     },
                     imageLoader = imageLoader,
