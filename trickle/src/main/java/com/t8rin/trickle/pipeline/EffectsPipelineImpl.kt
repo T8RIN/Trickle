@@ -11,17 +11,25 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         oilRange: Int
     ): Bitmap = oilImpl(
-        input = input,
+        input = input.toSoftware(),
         oilRange = oilRange
     ) ?: input
 
-    override fun tv(input: Bitmap): Bitmap = tvImpl(input) ?: input
+    override fun tv(
+        input: Bitmap
+    ): Bitmap = tvImpl(input.toSoftware()) ?: input
 
-    override fun hdr(input: Bitmap): Bitmap = hdrImpl(input) ?: input
+    override fun hdr(
+        input: Bitmap
+    ): Bitmap = hdrImpl(input.toSoftware()) ?: input
 
-    override fun sketch(input: Bitmap): Bitmap = sketchImpl(input) ?: input
+    override fun sketch(
+        input: Bitmap
+    ): Bitmap = sketchImpl(input.toSoftware()) ?: input
 
-    override fun gotham(input: Bitmap): Bitmap = gothamImpl(input) ?: input
+    override fun gotham(
+        input: Bitmap
+    ): Bitmap = gothamImpl(input.toSoftware()) ?: input
 
     override fun cropToContent(
         input: Bitmap,
@@ -47,7 +55,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         threshold: Int
     ): Bitmap {
-        val result = input.copy(input.config ?: Bitmap.Config.ARGB_8888, true)
+        val result = input.toSoftware()
         noiseImpl(
             srcBitmap = result,
             threshold = threshold
@@ -60,7 +68,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         threshold: Float,
         strength: Float
     ): Bitmap {
-        val result = input.copy(input.config ?: Bitmap.Config.ARGB_8888, true)
+        val result = input.toSoftware()
         shuffleBlurImpl(
             srcBitmap = result,
             threshold = threshold,
@@ -165,29 +173,6 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         ) ?: input
     }
 
-    private fun squareHarmony(color: Int): List<Int> {
-        val (h, s, v) = color.toHSV()
-        return listOf(
-            hsvToColor(h, s, v),
-            hsvToColor((h + 90) % 360, s, v),
-            hsvToColor((h + 180) % 360, s, v),
-            hsvToColor((h + 270) % 360, s, v)
-        )
-    }
-
-    private fun Int.toHSV(): FloatArray {
-        val hsv = FloatArray(3)
-        Color.colorToHSV(this, hsv)
-        return hsv
-    }
-
-    private fun hsvToColor(
-        h: Float,
-        s: Float,
-        v: Float
-    ): Int {
-        return Color.HSVToColor(floatArrayOf(h, s, v))
-    }
 
     private external fun popArtImpl(
         input: Bitmap,
@@ -273,3 +258,30 @@ internal object EffectsPipelineImpl : EffectsPipeline {
     ): Bitmap?
 
 }
+
+private fun squareHarmony(color: Int): List<Int> {
+    val (h, s, v) = color.toHSV()
+    return listOf(
+        hsvToColor(h, s, v),
+        hsvToColor((h + 90) % 360, s, v),
+        hsvToColor((h + 180) % 360, s, v),
+        hsvToColor((h + 270) % 360, s, v)
+    )
+}
+
+private fun Int.toHSV(): FloatArray {
+    val hsv = FloatArray(3)
+    Color.colorToHSV(this, hsv)
+    return hsv
+}
+
+private fun hsvToColor(
+    h: Float,
+    s: Float,
+    v: Float
+): Int {
+    return Color.HSVToColor(floatArrayOf(h, s, v))
+}
+
+private fun Bitmap.toSoftware(isMutable: Boolean = true): Bitmap =
+    copy(Bitmap.Config.ARGB_8888, isMutable)
