@@ -24,9 +24,9 @@
 
 using namespace Eigen;
 
-extern "C" JNIEXPORT void JNICALL
+extern "C" JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_noiseImpl(
-        JNIEnv *jenv, jobject clazz,
+        JNIEnv *env, jobject clazz,
         jobject src, int threshold
 ) {
     srand(time(NULL));
@@ -35,39 +35,52 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_noiseImpl(
     int i, j;
     AndroidBitmapInfo srcInfo;
 
-    result = AndroidBitmap_getInfo(jenv, src, &srcInfo);
+    result = AndroidBitmap_getInfo(env, src, &srcInfo);
     if (result != ANDROID_BITMAP_RESULT_SUCCESS) {
-        return;
+        return nullptr;
     }
 
-    result = AndroidBitmap_lockPixels(jenv, src, (void **) &srcByteBuffer);
+    result = AndroidBitmap_lockPixels(env, src, (void **) &srcByteBuffer);
     if (result != ANDROID_BITMAP_RESULT_SUCCESS) {
-        return;
+        return nullptr;
     }
 
     int width = srcInfo.width;
     int height = srcInfo.height;
 
+    jobject outputBitmap = createBitmap(env, width, height);
+    void *outPixels;
+    if ((result = AndroidBitmap_lockPixels(env, outputBitmap, &outPixels)) < 0) {
+        return nullptr;
+    }
+
     for (int y = 0; y < height; ++y) {
         auto pixels = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(srcByteBuffer) +
                                                   y * srcInfo.stride);
+        auto outData =  reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outPixels) +
+                                                      y * srcInfo.stride);
         int x = 0;
 
         for (; x < width; ++x) {
-            pixels[0] = pixels[0] | rand() % threshold;
-            pixels[1] = pixels[1] | rand() % threshold;
-            pixels[2] = pixels[2] | rand() % threshold;
+            outData[0] = pixels[0] | rand() % threshold;
+            outData[1] = pixels[1] | rand() % threshold;
+            outData[2] = pixels[2] | rand() % threshold;
+            outData[3] = pixels[3];
 
             pixels += 4;
+            outData += 4;
         }
     }
-    AndroidBitmap_unlockPixels(jenv, src);
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
 }
 
 extern "C"
-JNIEXPORT void JNICALL
+JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_shuffleBlurImpl(
-        JNIEnv *jenv,
+        JNIEnv *env,
         jobject clazz,
         jobject src,
         jfloat threshold,
@@ -78,18 +91,26 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_shuffleBlurImpl(
     int result;
     AndroidBitmapInfo srcInfo;
 
-    result = AndroidBitmap_getInfo(jenv, src, &srcInfo);
-    if (result != ANDROID_BITMAP_RESULT_SUCCESS) return;
+    result = AndroidBitmap_getInfo(env, src, &srcInfo);
+    if (result != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
 
-    result = AndroidBitmap_lockPixels(jenv, src, (void **) &srcByteBuffer);
-    if (result != ANDROID_BITMAP_RESULT_SUCCESS) return;
+    result = AndroidBitmap_lockPixels(env, src, (void **) &srcByteBuffer);
+    if (result != ANDROID_BITMAP_RESULT_SUCCESS) return nullptr;
 
     int width = srcInfo.width;
     int height = srcInfo.height;
 
+    jobject outputBitmap = createBitmap(env, width, height);
+    void *outPixels;
+    if ((result = AndroidBitmap_lockPixels(env, outputBitmap, &outPixels)) < 0) {
+        return nullptr;
+    }
+
     for (int y = 0; y < height; ++y) {
         auto pixels = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(srcByteBuffer) +
                                                   y * srcInfo.stride);
+        auto outData =  reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outPixels) +
+                                                    y * srcInfo.stride);
 
         for (int x = 0; x < width; ++x) {
             float luma = luminance(pixels[0], pixels[1], pixels[2]);
@@ -116,15 +137,21 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_shuffleBlurImpl(
                 int newG = newPixels[1];
                 int newB = newPixels[2];
 
-                pixels[0] = std::clamp(newR, 0, 255);
-                pixels[1] = std::clamp(newG, 0, 255);
-                pixels[2] = std::clamp(newB, 0, 255);
+                outData[0] = std::clamp(newR, 0, 255);
+                outData[1] = std::clamp(newG, 0, 255);
+                outData[2] = std::clamp(newB, 0, 255);
+                outData[3] = pixels[3];
             }
 
             pixels += 4;
+            outData += 4;
         }
     }
-    AndroidBitmap_unlockPixels(jenv, src);
+
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outputBitmap);
+
+    return outputBitmap;
 }
 
 extern "C"

@@ -134,11 +134,8 @@ fun MainActivity.Jp2Hypothesis() {
                                         GenericTransformation { bmp ->
                                             List(4) { it }.fold(bmp) { acc, i ->
                                                 when (i % 5) {
-                                                    0 -> Trickle.hdr(acc)
-                                                    1 -> Trickle.tv(acc)
-                                                    2 -> Trickle.oil(acc, 5)
-                                                    3 -> Trickle.sketch(acc)
-                                                    else -> Trickle.gotham(acc)
+                                                    1 -> Trickle.shuffleBlur(acc, 128f, 0.2f)
+                                                    else -> acc
                                                 }
                                             }
                                         }

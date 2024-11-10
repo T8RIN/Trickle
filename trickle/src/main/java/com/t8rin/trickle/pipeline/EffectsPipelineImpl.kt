@@ -54,28 +54,20 @@ internal object EffectsPipelineImpl : EffectsPipeline {
     override fun noise(
         input: Bitmap,
         threshold: Int
-    ): Bitmap {
-        val result = input.toSoftware()
-        noiseImpl(
-            srcBitmap = result,
-            threshold = threshold
-        )
-        return result
-    }
+    ): Bitmap = noiseImpl(
+        srcBitmap = input,
+        threshold = threshold
+    ) ?: input
 
     override fun shuffleBlur(
         input: Bitmap,
         threshold: Float,
         strength: Float
-    ): Bitmap {
-        val result = input.toSoftware()
-        shuffleBlurImpl(
-            srcBitmap = result,
-            threshold = threshold,
-            strength = strength
-        )
-        return result
-    }
+    ): Bitmap = shuffleBlurImpl(
+        srcBitmap = input,
+        threshold = threshold,
+        strength = strength
+    ) ?: input
 
     override fun colorPosterize(
         input: Bitmap,
@@ -225,9 +217,16 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         intensity: Float
     ): Bitmap?
 
-    private external fun noiseImpl(srcBitmap: Bitmap, threshold: Int)
+    private external fun noiseImpl(
+        srcBitmap: Bitmap,
+        threshold: Int
+    ): Bitmap?
 
-    private external fun shuffleBlurImpl(srcBitmap: Bitmap, threshold: Float, strength: Float)
+    private external fun shuffleBlurImpl(
+        srcBitmap: Bitmap,
+        threshold: Float,
+        strength: Float
+    ): Bitmap?
 
     private external fun colorPosterizeImpl(
         input: Bitmap,
