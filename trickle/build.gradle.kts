@@ -1,5 +1,6 @@
 plugins {
-    alias(libs.plugins.image.toolbox.library)
+    id("org.jetbrains.kotlin.android")
+    id("com.android.library")
     id("maven-publish")
 }
 
@@ -32,4 +33,28 @@ android {
             srcDir("src/main/libs")
         }
     }
+
+    compileSdk = libs.versions.androidCompileSdk.get().toIntOrNull()
+
+    defaultConfig {
+        minSdk = libs.versions.androidMinSdk.get().toIntOrNull()
+    }
+
+    compileOptions {
+        sourceCompatibility = javaVersion
+        targetCompatibility = javaVersion
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    dependencies {
+        implementation(libs.androidxCore)
+        coreLibraryDesugaring(libs.desugaring)
+    }
+
+    kotlinOptions {
+        jvmTarget = javaVersion.toString()
+    }
 }
+
+private val Project.javaVersion: JavaVersion
+    get() = JavaVersion.toVersion(libs.versions.jvmTarget.get())

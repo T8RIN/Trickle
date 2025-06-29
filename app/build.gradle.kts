@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -18,15 +19,12 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get().toString()
-    }
-
     compileOptions {
         sourceCompatibility = javaVersion
         targetCompatibility = javaVersion
         isCoreLibraryDesugaringEnabled = true
     }
+
     kotlinOptions {
         jvmTarget = javaVersion.toString()
     }
@@ -39,7 +37,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(projects.trickle)
     implementation(libs.androidx.palette.ktx)
@@ -49,6 +46,4 @@ dependencies {
 }
 
 val Project.javaVersion: JavaVersion
-    get() = JavaVersion.toVersion(
-        libs.versions.jvmTarget.get().toString()
-    )
+    get() = JavaVersion.toVersion(libs.versions.jvmTarget.get())
