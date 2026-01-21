@@ -39,6 +39,7 @@ import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
+import com.t8rin.trickle.BmpCompressor
 import com.t8rin.trickle.TrickleUtils.generateShades
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
@@ -66,10 +67,9 @@ fun MainActivity.Jp2Hypothesis() {
         imagePicker.launch(PickVisualMediaRequest())
     }
 
-    val imagePicker2 =
-        rememberLauncherForActivityResult(contract = ActivityResultContracts.PickVisualMedia()) {
-            target = it?.toString() ?: ""
-        }
+    rememberLauncherForActivityResult(contract = ActivityResultContracts.PickVisualMedia()) {
+        target = it?.toString() ?: ""
+    }
 
     val docuemntPicker =
         rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) {
@@ -103,7 +103,28 @@ fun MainActivity.Jp2Hypothesis() {
             modifier = Modifier.weight(1f)
         ) {
             AsyncImage(
-                model = source,
+                model = ImageRequest.Builder(this@Jp2Hypothesis)
+                    .data(source)
+                    .transformations(
+                        listOf(
+                            object : Transformation {
+                                override val cacheKey: String
+                                    get() = Random.nextInt().toString()
+
+                                override suspend fun transform(
+                                    input: Bitmap,
+                                    size: Size
+                                ): Bitmap {
+                                    return imageLoader.execute(
+                                        ImageRequest.Builder(this@Jp2Hypothesis)
+                                            .data(BmpCompressor.compress(input))
+                                            .build()
+                                    ).drawable?.toBitmap()!!
+                                }
+                            }
+                        )
+                    )
+                    .build(),
                 imageLoader = imageLoader,
                 modifier = Modifier.weight(1f),
                 contentDescription = null
@@ -115,15 +136,6 @@ fun MainActivity.Jp2Hypothesis() {
                 contentDescription = null
             )
             Switch(checked = isGray, onCheckedChange = { isGray = it })
-        }
-
-        val colors by remember {
-            derivedStateOf {
-                generateShades(
-                    Color.Cyan.toArgb(),
-                    shadeStep = (20).toInt().coerceAtLeast(2)
-                )
-            }
         }
 
         Row(

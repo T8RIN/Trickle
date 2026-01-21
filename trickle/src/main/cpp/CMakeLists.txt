@@ -20,6 +20,7 @@ add_library( # Sets the name of the library.
         trickle.cpp
         # Provides a relative path to your source file(s).
         WarpEngine.cpp
+        BmpCompressor.cpp
         AverageSmoothFilter.cpp
         GaussianBlurFilter.cpp
         HDRFilter.cpp
