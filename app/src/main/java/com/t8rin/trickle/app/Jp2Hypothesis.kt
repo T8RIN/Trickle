@@ -40,7 +40,7 @@ import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
 import com.t8rin.trickle.BmpCompressor
-import com.t8rin.trickle.TrickleUtils.generateShades
+import com.t8rin.trickle.TrickleUtils
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
@@ -105,6 +105,7 @@ fun MainActivity.Jp2Hypothesis() {
             AsyncImage(
                 model = ImageRequest.Builder(this@Jp2Hypothesis)
                     .data(source)
+                    .allowHardware(false)
                     .transformations(
                         listOf(
                             object : Transformation {
@@ -115,11 +116,13 @@ fun MainActivity.Jp2Hypothesis() {
                                     input: Bitmap,
                                     size: Size
                                 ): Bitmap {
-                                    return imageLoader.execute(
-                                        ImageRequest.Builder(this@Jp2Hypothesis)
-                                            .data(BmpCompressor.compress(input))
-                                            .build()
-                                    ).drawable?.toBitmap()!!
+                                    return TrickleUtils.trimEmptyParts(
+                                        imageLoader.execute(
+                                            ImageRequest.Builder(this@Jp2Hypothesis)
+                                                .data(BmpCompressor.compress(input))
+                                                .build()
+                                        ).drawable?.toBitmap()!!, Color.Transparent.toArgb()
+                                    )
                                 }
                             }
                         )
