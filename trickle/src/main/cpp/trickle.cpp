@@ -12,6 +12,7 @@
 #include "GothamFilter.h"
 #include "ColorUtils.h"
 #include "BitmapUtils.h"
+#include "WarpEngine.cpp"
 
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -339,4 +340,107 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_replaceColorImpl(JNIEnv *env
     }
 
     return resultBitmap;
+}
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_t8rin_trickle_WarpEngine_nativeCreate(
+        JNIEnv* env,
+        jobject,
+        jobject bitmap
+) {
+    AndroidBitmapInfo info;
+    void* ptr;
+
+    AndroidBitmap_getInfo(env, bitmap, &info);
+    AndroidBitmap_lockPixels(env, bitmap, &ptr);
+
+    auto* engine = new WarpEngine(info, ptr);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return reinterpret_cast<jlong>(engine);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_t8rin_trickle_WarpEngine_nativeApplyStroke(
+        JNIEnv*,
+        jobject,
+        jlong handle,
+        jfloat fromX,
+        jfloat fromY,
+        jfloat toX,
+        jfloat toY,
+        jfloat radius,
+        jfloat hardness,
+        jfloat strength,
+        jint mode
+) {
+    auto* engine = reinterpret_cast<WarpEngine*>(handle);
+
+    WarpBrush brush{
+            radius,
+            hardness,
+            strength
+    };
+
+    engine->applyStroke(
+            fromX,
+            fromY,
+            toX,
+            toY,
+            brush,
+            (WarpMode)mode
+    );
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_WarpEngine_nativeRender(
+        JNIEnv* env,
+        jobject,
+        jlong handle
+) {
+    auto* engine = reinterpret_cast<WarpEngine*>(handle);
+
+    jclass bitmapCls = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmap = env->GetStaticMethodID(
+            bitmapCls,
+            "createBitmap",
+            "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;"
+    );
+
+    jclass configCls = env->FindClass("android/graphics/Bitmap$Config");
+    jfieldID argb8888 = env->GetStaticFieldID(
+            configCls,
+            "ARGB_8888",
+            "Landroid/graphics/Bitmap$Config;"
+    );
+
+    jobject config = env->GetStaticObjectField(configCls, argb8888);
+
+    jobject outBitmap = env->CallStaticObjectMethod(
+            bitmapCls,
+            createBitmap,
+            engine->w,
+            engine->h,
+            config
+    );
+
+    void* outPtr;
+    AndroidBitmap_lockPixels(env, outBitmap, &outPtr);
+    engine->render(outPtr);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_t8rin_trickle_WarpEngine_nativeDestroy(
+        JNIEnv*,
+        jobject,
+        jlong handle
+) {
+    delete reinterpret_cast<WarpEngine*>(handle);
 }

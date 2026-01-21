@@ -1,3 +1,6 @@
+import org.gradle.kotlin.dsl.assign
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("org.jetbrains.kotlin.android")
     id("com.android.library")
@@ -51,8 +54,10 @@ android {
         coreLibraryDesugaring(libs.desugaring)
     }
 
-    kotlinOptions {
-        jvmTarget = javaVersion.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
+        }
     }
 }
 
