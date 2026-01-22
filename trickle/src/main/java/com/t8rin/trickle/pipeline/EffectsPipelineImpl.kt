@@ -186,6 +186,92 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         radius = radius
     )
 
+    override fun glitchVariant(
+        src: Bitmap,
+        iterations: Int,
+        maxOffsetFraction: Float,
+        channelShiftFraction: Float
+    ): Bitmap = glitchVariantImpl(
+        src = src.safe(),
+        iterations = iterations,
+        maxOffsetFraction = maxOffsetFraction,
+        channelShiftFraction = channelShiftFraction
+    ) ?: src
+
+    private external fun glitchVariantImpl(
+        src: Bitmap,
+        iterations: Int,
+        maxOffsetFraction: Float,
+        channelShiftFraction: Float
+    ): Bitmap?
+
+    override fun vhsGlitch(
+        src: Bitmap,
+        time: Float,
+        strength: Float
+    ): Bitmap = vhsGlitchImpl(
+        src = src.safe(),
+        time = time,
+        strength = strength
+    ) ?: src
+
+    private external fun vhsGlitchImpl(
+        src: Bitmap,
+        time: Float,
+        strength: Float
+    ): Bitmap?
+
+    override fun blockGlitch(
+        src: Bitmap,
+        strength: Float,
+        blockSizeFraction: Float
+    ): Bitmap = blockGlitchImpl(
+        src = src.safe(),
+        strength = strength,
+        blockSizeFraction = blockSizeFraction
+    ) ?: src
+
+    private external fun blockGlitchImpl(
+        src: Bitmap,
+        strength: Float,
+        blockSizeFraction: Float
+    ): Bitmap?
+
+    override fun crtCurvature(
+        src: Bitmap,
+        curvature: Float,
+        vignette: Float,
+        chroma: Float
+    ): Bitmap = crtCurvatureImpl(
+        src = src.safe(),
+        curvature = curvature,
+        vignette = vignette,
+        chroma = chroma
+    ) ?: src
+
+    private external fun crtCurvatureImpl(
+        src: Bitmap,
+        curvature: Float,
+        vignette: Float,
+        chroma: Float
+    ): Bitmap?
+
+    override fun pixelMelt(
+        src: Bitmap,
+        strength: Float,
+        maxDrop: Int
+    ): Bitmap = pixelMeltImpl(
+        src = src.safe(),
+        strength = strength,
+        maxDrop = maxDrop
+    ) ?: src
+
+    private external fun pixelMeltImpl(
+        src: Bitmap,
+        strength: Float,
+        maxDrop: Int
+    ): Bitmap?
+
     private external fun popArtImpl(
         input: Bitmap,
         firstColor: Int,

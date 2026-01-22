@@ -114,12 +114,12 @@ fun MainActivity.Jp2Hypothesis() {
                                     input: Bitmap,
                                     size: Size
                                 ): Bitmap {
-                                    return Trickle.fastBlur(
+                                    return Trickle.pixelMelt(
                                         imageLoader.execute(
                                             ImageRequest.Builder(this@Jp2Hypothesis)
                                                 .data(BmpCompressor.compress(input))
                                                 .build()
-                                        ).drawable?.toBitmap()!!, 1f, 20
+                                        ).drawable?.toBitmap()!!
                                     )
                                 }
                             }

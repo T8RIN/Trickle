@@ -103,4 +103,36 @@ interface EffectsPipeline {
         radius: Int
     ): Bitmap
 
+    fun glitchVariant(
+        src: Bitmap,
+        iterations: Int = 30,
+        maxOffsetFraction: Float = 0.25f,   // 0f..1f
+        channelShiftFraction: Float = 0.3f // 0f..1f
+    ): Bitmap
+
+    fun vhsGlitch(
+        src: Bitmap,
+        time: Float = 2f,
+        strength: Float = 3f
+    ): Bitmap
+
+    fun blockGlitch(
+        src: Bitmap,
+        strength: Float = 0.02f,
+        blockSizeFraction: Float = 0.5f
+    ): Bitmap
+
+    fun crtCurvature(
+        src: Bitmap,
+        curvature: Float = 0.25f,   // -1f..1f,
+        vignette: Float = 0.65f,    // 0f..1f,
+        chroma: Float = 0.015f      // 0f..1f
+    ): Bitmap
+
+    fun pixelMelt(
+        src: Bitmap,
+        strength: Float = 0.5f,   // 0f..1f,
+        maxDrop: Int = 20
+    ): Bitmap
+
 }

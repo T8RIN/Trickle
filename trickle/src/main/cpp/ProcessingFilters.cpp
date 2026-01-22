@@ -922,3 +922,431 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_popArtImpl(JNIEnv *env, jobj
 
     return newImage;
 }
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_glitchVariantImpl(
+        JNIEnv *env,
+        jobject /*thiz*/,
+        jobject src,
+        jint iterations,
+        jfloat maxOffsetFraction,
+        jfloat channelShiftFraction
+) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, src, &info)) < 0) return nullptr;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return nullptr;
+    if ((ret = AndroidBitmap_lockPixels(env, src, &pixels)) < 0) return nullptr;
+
+    const int w = info.width;
+    const int h = info.height;
+    const int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, w, h);
+    void *outPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, outBitmap, &outPixels)) < 0) {
+        AndroidBitmap_unlockPixels(env, src);
+        return nullptr;
+    }
+
+    auto *srcPx = reinterpret_cast<uint32_t *>(pixels);
+    auto *outPx = reinterpret_cast<uint32_t *>(outPixels);
+
+    memcpy(outPx, srcPx, h * stride);
+
+    const int maxOffset = static_cast<int>((w / 2.f) * maxOffsetFraction);
+    const int channelShift = static_cast<int>((w / 10.f) * channelShiftFraction);
+
+    for (int i = 0; i < iterations; ++i) {
+        int y = rand() % h;
+        int height = 1 + rand() % 5;
+        int offset = (rand() % (maxOffset * 2 + 1)) - maxOffset;
+
+        for (int dy = 0; dy < height; ++dy) {
+            int row = y + dy;
+            if (row < 0 || row >= h) continue;
+
+            uint32_t *dstRow = reinterpret_cast<uint32_t *>(
+                    reinterpret_cast<uint8_t *>(outPx) + row * stride);
+            uint32_t *srcRow = reinterpret_cast<uint32_t *>(
+                    reinterpret_cast<uint8_t *>(srcPx) + row * stride);
+
+            for (int x = 0; x < w; ++x) {
+                int srcX = x + offset;
+                if (srcX < 0) srcX = 0;
+                if (srcX >= w) srcX = w - 1;
+                dstRow[x] = srcRow[srcX];
+            }
+        }
+    }
+
+    for (int y = 0; y < h; ++y) {
+        auto *srcRow = reinterpret_cast<uint32_t *>(
+                reinterpret_cast<uint8_t *>(srcPx) + y * stride);
+        auto *outRow = reinterpret_cast<uint32_t *>(
+                reinterpret_cast<uint8_t *>(outPx) + y * stride);
+
+        for (int x = 0; x < w; ++x) {
+            int rX = x + channelShift;
+            int bX = x - channelShift;
+
+            if (rX < 0) rX = 0;
+            if (rX >= w) rX = w - 1;
+            if (bX < 0) bX = 0;
+            if (bX >= w) bX = w - 1;
+
+            uint32_t rSrc = srcRow[rX];
+            uint32_t bSrc = srcRow[bX];
+            uint32_t base = outRow[x];
+
+            uint8_t a = (base >> 24) & 0xFF;
+            uint8_t r = (rSrc >> 16) & 0xFF;
+            uint8_t g = (base >> 8) & 0xFF;
+            uint8_t b = bSrc & 0xFF;
+
+            outRow[x] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_vhsGlitchImpl(
+        JNIEnv *env,
+        jobject /*thiz*/,
+        jobject src,
+        jfloat time,
+        jfloat strength
+) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, src, &info)) < 0) return nullptr;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return nullptr;
+    if ((ret = AndroidBitmap_lockPixels(env, src, &pixels)) < 0) return nullptr;
+
+    const int w = info.width;
+    const int h = info.height;
+    const int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, w, h);
+    void *outPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, outBitmap, &outPixels)) < 0) {
+        AndroidBitmap_unlockPixels(env, src);
+        return nullptr;
+    }
+
+    auto *srcPx = reinterpret_cast<uint32_t *>(pixels);
+    auto *outPx = reinterpret_cast<uint32_t *>(outPixels);
+
+    const int lineJitterPx = static_cast<int>(w * 0.015f * strength);
+    const int rgbShiftPx = static_cast<int>(w * 0.008f * strength);
+    const float waveAmp = 2.f * strength;
+    const int noiseAmp = static_cast<int>(20.f * strength);
+
+    for (int y = 0; y < h; ++y) {
+        float wave = std::sin((y * 0.06f) + time * 4.f) * waveAmp;
+
+        int jitter = 0;
+        if ((rand() / (float) RAND_MAX) < 0.08f * strength) {
+            jitter = (rand() % (lineJitterPx * 2 + 1)) - lineJitterPx;
+        }
+
+        auto *srcRow = reinterpret_cast<uint32_t *>(
+                reinterpret_cast<uint8_t *>(srcPx) + y * stride);
+        auto *outRow = reinterpret_cast<uint32_t *>(
+                reinterpret_cast<uint8_t *>(outPx) + y * stride);
+
+        for (int x = 0; x < w; ++x) {
+            int baseX = static_cast<int>(x + wave + jitter);
+            if (baseX < 0) baseX = 0;
+            if (baseX >= w) baseX = w - 1;
+
+            int rX = baseX + rgbShiftPx;
+            int bX = baseX - rgbShiftPx;
+            if (rX < 0) rX = 0;
+            if (rX >= w) rX = w - 1;
+            if (bX < 0) bX = 0;
+            if (bX >= w) bX = w - 1;
+
+            uint32_t pR = srcRow[rX];
+            uint32_t pG = srcRow[baseX];
+            uint32_t pB = srcRow[bX];
+
+            int r = (pR >> 16) & 0xFF;
+            int g = (pG >> 8) & 0xFF;
+            int b = pB & 0xFF;
+            int a = (pG >> 24) & 0xFF;
+
+            int noise = (rand() % (noiseAmp * 2 + 1)) - noiseAmp;
+            r = std::min(255, std::max(0, r + noise));
+            g = std::min(255, std::max(0, g + noise));
+            b = std::min(255, std::max(0, b + noise));
+
+            if ((y % 3) == 0) {
+                r = static_cast<int>(r * 0.92f);
+                g = static_cast<int>(g * 0.92f);
+                b = static_cast<int>(b * 0.92f);
+            }
+
+            outRow[x] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_blockGlitchImpl(
+        JNIEnv *env,
+        jobject /*thiz*/,
+        jobject src,
+        jfloat strength,
+        jfloat blockSizeFraction
+) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, src, &info)) < 0) return nullptr;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return nullptr;
+    if ((ret = AndroidBitmap_lockPixels(env, src, &pixels)) < 0) return nullptr;
+
+    const int w = info.width;
+    const int h = info.height;
+    const int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, w, h);
+    void *outPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, outBitmap, &outPixels)) < 0) {
+        AndroidBitmap_unlockPixels(env, src);
+        return nullptr;
+    }
+
+    auto *srcPx = reinterpret_cast<uint32_t *>(pixels);
+    auto *outPx = reinterpret_cast<uint32_t *>(outPixels);
+
+    memcpy(outPx, srcPx, h * stride);
+
+    int blockSize = static_cast<int>(w * blockSizeFraction);
+    if (blockSize < 4) blockSize = 4;
+
+    const int maxOffset = static_cast<int>(w * 0.15f * strength);
+
+    for (int y = 0; y < h; y += blockSize) {
+        for (int x = 0; x < w; x += blockSize) {
+            if ((rand() / (float) RAND_MAX) < strength * 0.4f) {
+
+                int offsetX = (rand() % (maxOffset * 2 + 1)) - maxOffset;
+                int offsetY = (rand() % (blockSize * 2 + 1)) - blockSize;
+
+                for (int dy = 0; dy < blockSize; ++dy) {
+                    int sy = y + dy + offsetY;
+                    if (sy < 0) sy = 0;
+                    if (sy >= h) sy = h - 1;
+
+                    int dyOut = y + dy;
+                    if (dyOut < 0 || dyOut >= h) continue;
+
+                    auto *srcRow = reinterpret_cast<uint32_t *>(
+                            reinterpret_cast<uint8_t *>(srcPx) + sy * stride);
+                    auto *outRow = reinterpret_cast<uint32_t *>(
+                            reinterpret_cast<uint8_t *>(outPx) + dyOut * stride);
+
+                    for (int dx = 0; dx < blockSize; ++dx) {
+                        int sx = x + dx + offsetX;
+                        if (sx < 0) sx = 0;
+                        if (sx >= w) sx = w - 1;
+
+                        int dxOut = x + dx;
+                        if (dxOut < 0 || dxOut >= w) continue;
+
+                        outRow[dxOut] = srcRow[sx];
+                    }
+                }
+            }
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_crtCurvatureImpl(
+        JNIEnv *env,
+        jobject /*thiz*/,
+        jobject src,
+        jfloat curvature,
+        jfloat vignette,
+        jfloat chroma
+) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, src, &info)) < 0) return nullptr;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return nullptr;
+    if ((ret = AndroidBitmap_lockPixels(env, src, &pixels)) < 0) return nullptr;
+
+    const int w = info.width;
+    const int h = info.height;
+    const int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, w, h);
+    void *outPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, outBitmap, &outPixels)) < 0) {
+        AndroidBitmap_unlockPixels(env, src);
+        return nullptr;
+    }
+
+    auto *srcPx = reinterpret_cast<uint32_t *>(pixels);
+    auto *outPx = reinterpret_cast<uint32_t *>(outPixels);
+
+    const float cx = w * 0.5f;
+    const float cy = h * 0.5f;
+    const float maxR = std::sqrt(cx * cx + cy * cy);
+
+    const float curve = curvature * 0.45f;
+    const int chromaPx = static_cast<int>(w * chroma);
+    const float scaleFactor = 1.f - curve * 0.2f;
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+
+            float nx = ((x - cx) / cx) * scaleFactor;
+            float ny = ((y - cy) / cy) * scaleFactor;
+
+            float r2 = nx * nx + ny * ny;
+            float k = 1.f - r2 * curve;
+
+            int sx = static_cast<int>(cx + nx * cx / k);
+            int sy = static_cast<int>(cy + ny * cy / k);
+
+            if (sx < 0) sx = 0;
+            if (sx >= w) sx = w - 1;
+            if (sy < 0) sy = 0;
+            if (sy >= h) sy = h - 1;
+
+            int base = sy * w + sx;
+
+            int rX = sx + chromaPx;
+            int bX = sx - chromaPx;
+            if (rX < 0) rX = 0;
+            if (rX >= w) rX = w - 1;
+            if (bX < 0) bX = 0;
+            if (bX >= w) bX = w - 1;
+
+            uint32_t pR = srcPx[sy * w + rX];
+            uint32_t pG = srcPx[base];
+            uint32_t pB = srcPx[sy * w + bX];
+
+            int r = (pR >> 16) & 0xFF;
+            int g = (pG >> 8) & 0xFF;
+            int b = pB & 0xFF;
+            int a = (pG >> 24) & 0xFF;
+
+            float dx = x - cx;
+            float dy = y - cy;
+            float dist = std::sqrt(dx * dx + dy * dy) / maxR;
+            float vig = 1.f - vignette * dist * dist;
+
+            r = static_cast<int>(r * vig);
+            g = static_cast<int>(g * vig);
+            b = static_cast<int>(b * vig);
+
+            if (r < 0) r = 0;
+            if (r > 255) r = 255;
+            if (g < 0) g = 0;
+            if (g > 255) g = 255;
+            if (b < 0) b = 0;
+            if (b > 255) b = 255;
+
+            auto *outRow = reinterpret_cast<uint32_t *>(
+                    reinterpret_cast<uint8_t *>(outPx) + y * stride);
+
+            outRow[x] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_pixelMeltImpl(
+        JNIEnv *env,
+        jobject /*thiz*/,
+        jobject src,
+        jfloat strength,
+        jint maxDrop
+) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    int ret;
+
+    if ((ret = AndroidBitmap_getInfo(env, src, &info)) < 0) return nullptr;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return nullptr;
+    if ((ret = AndroidBitmap_lockPixels(env, src, &pixels)) < 0) return nullptr;
+
+    const int w = info.width;
+    const int h = info.height;
+    const int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, w, h);
+    void *outPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, outBitmap, &outPixels)) < 0) {
+        AndroidBitmap_unlockPixels(env, src);
+        return nullptr;
+    }
+
+    auto *srcPx = reinterpret_cast<uint32_t *>(pixels);
+    auto *outPx = reinterpret_cast<uint32_t *>(outPixels);
+
+    memcpy(outPx, srcPx, h * stride);
+
+    for (int x = 0; x < w; ++x) {
+        int drop = 0;
+        for (int y = 0; y < h; ++y) {
+            int i = y * w + x;
+
+            if ((rand() / (float) RAND_MAX) < strength) {
+                drop = 1 + rand() % maxDrop;
+            }
+
+            int newY = y + drop;
+            if (newY >= h) newY = h - 1;
+
+            auto *dstRow = reinterpret_cast<uint32_t *>(
+                    reinterpret_cast<uint8_t *>(outPx) + newY * stride);
+            auto *srcRow = reinterpret_cast<uint32_t *>(
+                    reinterpret_cast<uint8_t *>(srcPx) + y * stride);
+
+            dstRow[x] = srcRow[x];
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, src);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
