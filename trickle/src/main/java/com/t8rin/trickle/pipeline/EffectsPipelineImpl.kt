@@ -12,32 +12,32 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         oilRange: Int
     ): Bitmap = oilImpl(
-        input = input.toSoftware(),
+        input = input.safe(),
         oilRange = oilRange
     ) ?: input
 
     override fun tv(
         input: Bitmap
-    ): Bitmap = tvImpl(input.toSoftware()) ?: input
+    ): Bitmap = tvImpl(input.safe()) ?: input
 
     override fun hdr(
         input: Bitmap
-    ): Bitmap = hdrImpl(input.toSoftware()) ?: input
+    ): Bitmap = hdrImpl(input.safe()) ?: input
 
     override fun sketch(
         input: Bitmap
-    ): Bitmap = sketchImpl(input.toSoftware()) ?: input
+    ): Bitmap = sketchImpl(input.safe()) ?: input
 
     override fun gotham(
         input: Bitmap
-    ): Bitmap = gothamImpl(input.toSoftware()) ?: input
+    ): Bitmap = gothamImpl(input.safe()) ?: input
 
     override fun cropToContent(
         input: Bitmap,
         colorToIgnore: Int,
         tolerance: Float
     ): Bitmap = cropToContentImpl(
-        input = input,
+        input = input.safe(),
         colorToIgnore = colorToIgnore,
         tolerance = tolerance
     ) ?: input
@@ -47,8 +47,8 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         target: Bitmap,
         intensity: Float
     ): Bitmap = transferPaletteImpl(
-        source = source,
-        target = target,
+        source = source.safe(),
+        target = target.safe(),
         intensity = intensity
     ) ?: source
 
@@ -56,7 +56,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         threshold: Int
     ): Bitmap = noiseImpl(
-        srcBitmap = input,
+        srcBitmap = input.safe(),
         threshold = threshold
     ) ?: input
 
@@ -65,7 +65,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         threshold: Float,
         strength: Float
     ): Bitmap = shuffleBlurImpl(
-        srcBitmap = input,
+        srcBitmap = input.safe(),
         threshold = threshold,
         strength = strength
     ) ?: input
@@ -74,7 +74,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         colors: IntArray
     ): Bitmap = colorPosterizeImpl(
-        input = input,
+        input = input.safe(),
         colors = colors
     ) ?: input
 
@@ -84,7 +84,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         targetColor: Int,
         tolerance: Float
     ): Bitmap = replaceColorImpl(
-        input = input,
+        input = input.safe(),
         sourceColor = sourceColor,
         targetColor = targetColor,
         tolerance = tolerance
@@ -94,7 +94,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         color: Int
     ): Bitmap = drawColorAboveImpl(
-        input = input,
+        input = input.safe(),
         color = color
     ) ?: input
 
@@ -102,7 +102,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         color: Int
     ): Bitmap = drawColorBehindImpl(
-        input = input,
+        input = input.safe(),
         color = color
     ) ?: input
 
@@ -112,7 +112,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         middleColor: Int,
         highlightsColor: Int
     ): Bitmap = tritoneImpl(
-        input = input,
+        input = input.safe(),
         shadowsColor = shadowsColor,
         middleColor = middleColor,
         highlightsColor = highlightsColor
@@ -123,7 +123,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         dotRadius: Int,
         spacing: Int
     ): Bitmap = polkaDotImpl(
-        input = input,
+        input = input.safe(),
         dotRadius = dotRadius,
         spacing = spacing
     ) ?: input
@@ -133,8 +133,8 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         lutBitmap: Bitmap,
         intensity: Float
     ): Bitmap = applyLutImpl(
-        input = input,
-        lutBitmap = lutBitmap,
+        input = input.safe(),
+        lutBitmap = lutBitmap.safe(),
         intensity = intensity
     ) ?: input
 
@@ -143,7 +143,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         cubeLutPath: String,
         intensity: Float
     ): Bitmap = applyCubeLutImpl(
-        input = input,
+        input = input.safe(),
         cubeLutPath = cubeLutPath,
         intensity = intensity
     ) ?: input
@@ -156,7 +156,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
     ): Bitmap {
         val (firstColor, secondColor, thirdColor, fourthColor) = squareHarmony(color)
         return popArtImpl(
-            input = input,
+            input = input.safe(),
             firstColor = firstColor,
             secondColor = secondColor,
             thirdColor = thirdColor,
@@ -313,6 +313,3 @@ private fun hsvToColor(
 ): Int {
     return Color.HSVToColor(floatArrayOf(h, s, v))
 }
-
-private fun Bitmap.toSoftware(isMutable: Boolean = true): Bitmap =
-    copy(Bitmap.Config.ARGB_8888, isMutable)

@@ -5,12 +5,13 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import com.t8rin.trickle.LowPolyPipeline
+import com.t8rin.trickle.TrickleUtils.safe
 
 internal object LowPolyPipelineImpl : LowPolyPipeline {
 
     override fun lowPoly(input: Bitmap, alphaOrPointCount: Float, fill: Boolean): Bitmap {
         return generate(
-            input = input,
+            input = input.safe(),
             threshold = 50,
             alphaOrPointCount = alphaOrPointCount,
             lowPoly = true,
@@ -21,7 +22,7 @@ internal object LowPolyPipelineImpl : LowPolyPipeline {
 
     override fun sandPainting(input: Bitmap, threshold: Int, alphaOrPointCount: Float): Bitmap {
         return generateNonNative(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             alphaOrPointCount = alphaOrPointCount,
             lowPoly = false,

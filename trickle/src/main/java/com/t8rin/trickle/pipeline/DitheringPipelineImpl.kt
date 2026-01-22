@@ -3,6 +3,7 @@ package com.t8rin.trickle.pipeline
 import android.graphics.Bitmap
 import com.t8rin.trickle.DitheringPipeline
 import com.t8rin.trickle.DitheringType
+import com.t8rin.trickle.TrickleUtils.safe
 
 internal object DitheringPipelineImpl : DitheringPipeline {
 
@@ -13,117 +14,117 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         isGrayScale: Boolean
     ): Bitmap = when (type) {
         DitheringType.BayerTwo -> ordered2By2BayerDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.BayerThree -> ordered3By3BayerDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.BayerFour -> ordered4By4BayerDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.BayerEight -> ordered8By8BayerDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.FloydSteinberg -> floydSteinbergDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.JarvisJudiceNinke -> jarvisJudiceNinkeDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.Sierra -> sierraDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.TwoRowSierra -> twoRowSierraDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.SierraLite -> sierraLiteDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.Atkinson -> atkinsonDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.Stucki -> stuckiDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.Burkes -> burkesDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.FalseFloydSteinberg -> falseFloydSteinbergDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.LeftToRight -> simpleLeftToRightErrorDiffusionDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.Random -> randomDithering(
-            input = input,
+            input = input.safe(),
             isGrayScale = isGrayScale
         )
 
         DitheringType.SimpleThreshold -> simpleThresholdDithering(
-            input = input,
+            input = input.safe(),
             threshold = threshold,
             isGrayScale = isGrayScale
         )
 
         DitheringType.Clustered2x2 -> clustered2x2Dithering(
-            input = input,
+            input = input.safe(),
             isGrayScale = isGrayScale
         )
 
         DitheringType.Clustered4x4 -> clustered4x4Dithering(
-            input = input,
+            input = input.safe(),
             isGrayScale = isGrayScale
         )
 
         DitheringType.Clustered8x8 -> clustered8x8Dithering(
-            input = input,
+            input = input.safe(),
             isGrayScale = isGrayScale
         )
 
         DitheringType.Yililoma -> ylilomaDithering(
-            input = input,
+            input = input.safe(),
             isGrayScale = isGrayScale
         )
     }
@@ -133,7 +134,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = ordered2By2BayerImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -143,7 +144,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = ordered3By3BayerImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -153,7 +154,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = ordered4By4BayerImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -163,7 +164,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = ordered8By8BayerImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -173,7 +174,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = floydSteinbergImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -183,7 +184,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = jarvisJudiceNinkeImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -193,7 +194,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = sierraImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -203,7 +204,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = twoRowSierraImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -213,7 +214,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = sierraLiteImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -223,7 +224,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = atkinsonImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -233,7 +234,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = stuckiImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -243,7 +244,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = burkesImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -253,7 +254,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = falseFloydSteinbergImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -263,7 +264,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = simpleLeftToRightErrorDiffusionImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -272,7 +273,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap = randomImpl(
-        input = input,
+        input = input.safe(),
         isGrayScale = isGrayScale
     ) ?: input
 
@@ -281,7 +282,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         threshold: Int,
         isGrayScale: Boolean
     ): Bitmap = simpleThresholdImpl(
-        input = input,
+        input = input.safe(),
         threshold = threshold,
         isGrayScale = isGrayScale
     ) ?: input
@@ -290,7 +291,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap = clustered2x2DitheringImpl(
-        input = input,
+        input = input.safe(),
         isGrayScale = isGrayScale
     ) ?: input
 
@@ -298,7 +299,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap = clustered4x4DitheringImpl(
-        input = input,
+        input = input.safe(),
         isGrayScale = isGrayScale
     ) ?: input
 
@@ -306,7 +307,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap = clustered8x8DitheringImpl(
-        input = input,
+        input = input.safe(),
         isGrayScale = isGrayScale
     ) ?: input
 
@@ -314,7 +315,7 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap = ylilomaDitheringImpl(
-        input = input,
+        input = input.safe(),
         isGrayScale = isGrayScale
     ) ?: input
 
