@@ -27,9 +27,19 @@ Java_com_t8rin_trickle_BmpCompressor_compress(
 ) {
     AndroidBitmapInfo info;
     void *pixelsPtr;
+    int lock;
 
-    AndroidBitmap_getInfo(env, bitmap, &info);
-    AndroidBitmap_lockPixels(env, bitmap, &pixelsPtr);
+    lock = AndroidBitmap_getInfo(env, bitmap, &info);
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
+
+    lock = AndroidBitmap_lockPixels(env, bitmap, &pixelsPtr);
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return nullptr;
+    }
 
     int width = info.width;
     int height = info.height;

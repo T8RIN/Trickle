@@ -23,11 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntSize
@@ -40,7 +38,7 @@ import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
 import com.t8rin.trickle.BmpCompressor
-import com.t8rin.trickle.TrickleUtils
+import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
@@ -116,12 +114,12 @@ fun MainActivity.Jp2Hypothesis() {
                                     input: Bitmap,
                                     size: Size
                                 ): Bitmap {
-                                    return TrickleUtils.trimEmptyParts(
+                                    return Trickle.fastBlur(
                                         imageLoader.execute(
                                             ImageRequest.Builder(this@Jp2Hypothesis)
                                                 .data(BmpCompressor.compress(input))
                                                 .build()
-                                        ).drawable?.toBitmap()!!, Color.Transparent.toArgb()
+                                        ).drawable?.toBitmap()!!, 1f, 20
                                     )
                                 }
                             }

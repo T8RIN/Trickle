@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import com.t8rin.trickle.EffectsPipeline
 import com.t8rin.trickle.PopArtBlendMode
+import com.t8rin.trickle.TrickleUtils.safe
 
 internal object EffectsPipelineImpl : EffectsPipeline {
 
@@ -165,6 +166,25 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         ) ?: input
     }
 
+    override fun stackBlur(
+        bitmap: Bitmap,
+        scale: Float,
+        radius: Int
+    ): Bitmap = stackBlurImpl(
+        srcBitmap = bitmap.safe(),
+        scale = scale,
+        radius = radius
+    )
+
+    override fun fastBlur(
+        bitmap: Bitmap,
+        scale: Float,
+        radius: Int
+    ): Bitmap = fastBlurImpl(
+        srcBitmap = bitmap.safe(),
+        scale = scale,
+        radius = radius
+    )
 
     private external fun popArtImpl(
         input: Bitmap,
@@ -255,6 +275,18 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         dotRadius: Int,
         spacing: Int
     ): Bitmap?
+
+    private external fun stackBlurImpl(
+        srcBitmap: Bitmap,
+        scale: Float,
+        radius: Int
+    ): Bitmap
+
+    private external fun fastBlurImpl(
+        srcBitmap: Bitmap,
+        scale: Float,
+        radius: Int
+    ): Bitmap
 
 }
 

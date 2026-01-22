@@ -62,26 +62,6 @@ object TrickleUtils : NativeLoader() {
         pixelSpacing = pixelSpacing
     )
 
-    fun fastBlur(
-        bitmap: Bitmap,
-        scale: Float,
-        radius: Int
-    ): Bitmap = fastBlurImpl(
-        srcBitmap = bitmap.safe(),
-        scale = scale,
-        radius = radius
-    )
-
-    fun stackBlur(
-        bitmap: Bitmap,
-        scale: Float,
-        radius: Int
-    ): Bitmap = stackBlurImpl(
-        srcBitmap = bitmap.safe(),
-        scale = scale,
-        radius = radius
-    )
-
     fun trimEmptyParts(
         bitmap: Bitmap,
         transparent: Int
@@ -95,18 +75,6 @@ object TrickleUtils : NativeLoader() {
         transparent: Int
     ): Bitmap
 
-    private external fun stackBlurImpl(
-        srcBitmap: Bitmap,
-        scale: Float,
-        radius: Int
-    ): Bitmap
-
-    private external fun fastBlurImpl(
-        srcBitmap: Bitmap,
-        scale: Float,
-        radius: Int
-    ): Bitmap
-
     private external fun checkHasAlphaImpl(bitmap: Bitmap): Boolean
 
     private external fun calculateBrightnessEstimate(
@@ -114,7 +82,7 @@ object TrickleUtils : NativeLoader() {
         pixelSpacing: Int = 1
     ): Int
 
-    private fun Bitmap.safe() = if (config != Bitmap.Config.ARGB_8888) {
+    internal fun Bitmap.safe() = if (config != Bitmap.Config.ARGB_8888) {
         copy(Bitmap.Config.ARGB_8888, false)
     } else this
 

@@ -91,4 +91,16 @@ interface EffectsPipeline {
         strength: Float
     ): Bitmap
 
+    fun fastBlur(
+        bitmap: Bitmap,
+        scale: Float,
+        radius: Int
+    ): Bitmap
+
+    fun stackBlur(
+        bitmap: Bitmap,
+        scale: Float,
+        radius: Int
+    ): Bitmap
+
 }

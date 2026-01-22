@@ -7,6 +7,6 @@ object BmpCompressor : NativeLoader() {
 
     external fun compress(
         bitmap: Bitmap
-    ): ByteArray
+    ): ByteArray?
 
 }

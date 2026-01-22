@@ -48,7 +48,7 @@ static inline int clamp(int v, int minv, int maxv) {
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_t8rin_trickle_TrickleUtils_fastBlurImpl(
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_fastBlurImpl(
         JNIEnv *env,
         jobject /* this */,
         jobject srcBitmap,
@@ -85,8 +85,19 @@ Java_com_t8rin_trickle_TrickleUtils_fastBlurImpl(
 
     AndroidBitmapInfo info;
     void *pixelsPtr;
-    AndroidBitmap_getInfo(env, bitmap, &info);
-    AndroidBitmap_lockPixels(env, bitmap, &pixelsPtr);
+    int lock;
+
+    lock = AndroidBitmap_getInfo(env, bitmap, &info);
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return srcBitmap;
+    }
+
+    lock = AndroidBitmap_lockPixels(env, bitmap, &pixelsPtr);
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return srcBitmap;
+    }
 
     const int w = info.width;
     const int h = info.height;
@@ -192,7 +203,7 @@ Java_com_t8rin_trickle_TrickleUtils_fastBlurImpl(
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_t8rin_trickle_TrickleUtils_stackBlurImpl(
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_stackBlurImpl(
         JNIEnv *env,
         jobject /* this */,
         jobject srcBitmap,
@@ -229,8 +240,19 @@ Java_com_t8rin_trickle_TrickleUtils_stackBlurImpl(
 
     AndroidBitmapInfo info;
     void *pixelsPtr = nullptr;
-    AndroidBitmap_getInfo(env, bitmap, &info);
-    AndroidBitmap_lockPixels(env, bitmap, &pixelsPtr);
+    int lock;
+
+    lock = AndroidBitmap_getInfo(env, bitmap, &info);
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return srcBitmap;
+    }
+
+    lock = AndroidBitmap_lockPixels(env, bitmap, &pixelsPtr);
+    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
+        AndroidBitmap_unlockPixels(env, bitmap);
+        return srcBitmap;
+    }
 
     const int w = info.width;
     const int h = info.height;
