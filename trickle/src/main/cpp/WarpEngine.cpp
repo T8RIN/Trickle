@@ -8,7 +8,8 @@ enum WarpMode {
     GROW = 1,
     SHRINK = 2,
     SWIRL_CW = 3,
-    SWIRL_CCW = 4
+    SWIRL_CCW = 4,
+    MIXING = 5
 };
 
 struct WarpBrush {
@@ -131,6 +132,7 @@ struct WarpEngine {
     ) {
         float r = brush.radius;
         float r2 = r * r;
+        int centerColor = sampleBilinear(toX, toY);
 
         int minX = std::max(0, (int)(toX - r));
         int maxX = std::min(w - 1, (int)(toX + r));
@@ -150,6 +152,7 @@ struct WarpEngine {
                 float amp = 1.f;
                 if (mode == GROW || mode == SHRINK) amp = 0.03f;
                 else if (mode == SWIRL_CW || mode == SWIRL_CCW) amp = 0.2f;
+                else if (mode == MIXING) amp = 1.f;
 
                 float falloff =
                         smoothstep(brush.hardness, 1.f, t) *
@@ -187,6 +190,11 @@ struct WarpEngine {
 
                         map.dx[idx] += (rx - dx);
                         map.dy[idx] += (ry - dy);
+                        break;
+                    }
+
+                    case MIXING: {
+                        pixels[idx] = lerpColor(pixels[idx], centerColor, falloff);
                         break;
                     }
                 }

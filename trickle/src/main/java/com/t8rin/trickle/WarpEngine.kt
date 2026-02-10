@@ -64,7 +64,8 @@ enum class WarpMode {
     GROW,
     SHRINK,
     SWIRL_CW,
-    SWIRL_CCW
+    SWIRL_CCW,
+    MIXING
 }
 
 data class WarpBrush(

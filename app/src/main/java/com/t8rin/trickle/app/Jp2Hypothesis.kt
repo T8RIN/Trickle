@@ -233,7 +233,7 @@ fun MainActivity.Jp2Hypothesis() {
                                     from.x, from.y,
                                     to.x, to.y,
                                     WarpBrush(80f, 1f, 0.4f),
-                                    WarpMode.SWIRL_CW
+                                    WarpMode.MIXING
                                 )
                                 invalidate++
                             }
