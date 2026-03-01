@@ -135,4 +135,14 @@ interface EffectsPipeline {
         maxDrop: Int = 20
     ): Bitmap
 
+    fun bloom(
+        src: Bitmap,
+        threshold: Float, // 0f..1f,
+        intensity: Float,
+        radius: Int,
+        softKnee: Float,
+        exposure: Float,
+        gamma: Float
+    ): Bitmap
+
 }

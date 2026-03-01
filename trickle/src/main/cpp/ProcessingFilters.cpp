@@ -1293,6 +1293,200 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_crtCurvatureImpl(
 
 extern "C"
 JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_bloomImpl(
+        JNIEnv *env,
+        jobject thiz,
+        jobject input,
+        jfloat threshold,
+        jfloat intensity,
+        jint radius,
+        jfloat softKnee,
+        jfloat exposure,
+        jfloat gamma
+) {
+
+    AndroidBitmapInfo info;
+    void *pixels;
+
+    if (AndroidBitmap_getInfo(env, input, &info) < 0)
+        return nullptr;
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888)
+        return nullptr;
+
+    if (AndroidBitmap_lockPixels(env, input, &pixels) < 0)
+        return nullptr;
+
+    int width = info.width;
+    int height = info.height;
+    int stride = info.stride;
+
+    jobject outBitmap = createBitmap(env, width, height);
+    void *outPixels;
+
+    if (AndroidBitmap_lockPixels(env, outBitmap, &outPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    const int pixelCount = width * height;
+
+    std::vector<float> bright(pixelCount * 3);
+    std::vector<float> temp(pixelCount * 3);
+
+    auto luminance = [](float r, float g, float b) {
+        return 0.299f * r + 0.587f * g + 0.114f * b;
+    };
+
+    // ---- Bright pass + exponential curve ----
+    threshold = std::min(1.f, std::max(0.f, threshold));
+    float threshold255 = threshold * 255.f;
+
+    for (int y = 0; y < height; ++y) {
+
+        auto src = reinterpret_cast<uint8_t *>(
+                reinterpret_cast<uint8_t *>(pixels) + y * stride);
+
+        for (int x = 0; x < width; ++x) {
+
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+
+            float lum = 0.299f * r + 0.587f * g + 0.114f * b;
+
+            float knee = threshold255 * softKnee;
+            float diff = lum - threshold255;
+
+            float weight = 0.f;
+
+            if (diff > 0.f)
+                weight = diff;
+            else if (diff > -knee)
+                weight = diff * diff / (4.f * knee);
+
+            weight = std::max(weight, 0.f);
+
+            float glow = 1.f - std::exp(-weight * exposure);
+
+            int idx = (y * width + x) * 3;
+
+            bright[idx] = r * glow;
+            bright[idx + 1] = g * glow;
+            bright[idx + 2] = b * glow;
+
+            src += 4;
+        }
+    }
+
+    // ---- Gaussian kernel ----
+    radius = std::max(1, radius);
+    float sigma = radius * 0.5f;
+    int kernelSize = radius * 2 + 1;
+
+    std::vector<float> kernel(kernelSize);
+    float sum = 0.f;
+
+    for (int i = -radius; i <= radius; ++i) {
+        float v = std::exp(-(i * i) / (2.f * sigma * sigma));
+        kernel[i + radius] = v;
+        sum += v;
+    }
+
+    for (auto &k: kernel)
+        k /= sum;
+
+    // ---- Horizontal blur ----
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+
+            float r = 0, g = 0, b = 0;
+
+            for (int k = -radius; k <= radius; ++k) {
+
+                int xx = std::min(width - 1, std::max(0, x + k));
+                int idx = (y * width + xx) * 3;
+                float w = kernel[k + radius];
+
+                r += bright[idx] * w;
+                g += bright[idx + 1] * w;
+                b += bright[idx + 2] * w;
+            }
+
+            int outIdx = (y * width + x) * 3;
+
+            temp[outIdx] = r;
+            temp[outIdx + 1] = g;
+            temp[outIdx + 2] = b;
+        }
+    }
+
+    // ---- Vertical blur ----
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+
+            float r = 0, g = 0, b = 0;
+
+            for (int k = -radius; k <= radius; ++k) {
+
+                int yy = std::min(height - 1, std::max(0, y + k));
+                int idx = (yy * width + x) * 3;
+                float w = kernel[k + radius];
+
+                r += temp[idx] * w;
+                g += temp[idx + 1] * w;
+                b += temp[idx + 2] * w;
+            }
+
+            int outIdx = (y * width + x) * 3;
+
+            bright[outIdx] = r * intensity;
+            bright[outIdx + 1] = g * intensity;
+            bright[outIdx + 2] = b * intensity;
+        }
+    }
+
+    // ---- Combine + gamma ----
+    for (int y = 0; y < height; ++y) {
+
+        auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(pixels) + y * stride);
+        auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outPixels) + y * stride);
+
+        for (int x = 0; x < width; ++x) {
+
+            int r = src[0];
+            int g = src[1];
+            int b = src[2];
+            int a = src[3];
+
+            int idx = (y * width + x) * 3;
+
+            float fr = r + bright[idx];
+            float fg = g + bright[idx + 1];
+            float fb = b + bright[idx + 2];
+
+            fr = 255.f * std::pow(fr / 255.f, 1.f / gamma);
+            fg = 255.f * std::pow(fg / 255.f, 1.f / gamma);
+            fb = 255.f * std::pow(fb / 255.f, 1.f / gamma);
+
+            dst[0] = std::min(255, std::max(0, (int) fr));
+            dst[1] = std::min(255, std::max(0, (int) fg));
+            dst[2] = std::min(255, std::max(0, (int) fb));
+            dst[3] = a;
+
+            src += 4;
+            dst += 4;
+        }
+    }
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, outBitmap);
+
+    return outBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_pixelMeltImpl(
         JNIEnv *env,
         jobject /*thiz*/,

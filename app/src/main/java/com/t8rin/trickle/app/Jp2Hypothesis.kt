@@ -114,12 +114,18 @@ fun MainActivity.Jp2Hypothesis() {
                                     input: Bitmap,
                                     size: Size
                                 ): Bitmap {
-                                    return Trickle.pixelMelt(
-                                        imageLoader.execute(
+                                    return Trickle.bloom(
+                                        src = imageLoader.execute(
                                             ImageRequest.Builder(this@Jp2Hypothesis)
                                                 .data(BmpCompressor.compress(input))
                                                 .build()
-                                        ).drawable?.toBitmap()!!
+                                        ).drawable?.toBitmap()!!,
+                                        threshold = 0.6f,
+                                        intensity = 2.5f,
+                                        radius = 35,
+                                        softKnee = 0.8f,
+                                        exposure = 0.04f,
+                                        gamma = 0.9f
                                     )
                                 }
                             }

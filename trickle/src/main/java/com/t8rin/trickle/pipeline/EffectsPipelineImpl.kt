@@ -266,6 +266,34 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         maxDrop = maxDrop
     ) ?: src
 
+    override fun bloom(
+        src: Bitmap,
+        threshold: Float,
+        intensity: Float,
+        radius: Int,
+        softKnee: Float,
+        exposure: Float,
+        gamma: Float
+    ): Bitmap = bloomImpl(
+        input = src.safe(),
+        threshold = threshold,
+        intensity = intensity,
+        radius = radius,
+        softKnee = softKnee,
+        exposure = exposure,
+        gamma = gamma
+    ) ?: src
+
+    private external fun bloomImpl(
+        input: Bitmap,
+        threshold: Float,
+        intensity: Float,
+        radius: Int,
+        softKnee: Float,
+        exposure: Float,
+        gamma: Float
+    ): Bitmap?
+
     private external fun pixelMeltImpl(
         src: Bitmap,
         strength: Float,
