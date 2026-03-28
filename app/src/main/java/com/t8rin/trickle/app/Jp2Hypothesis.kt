@@ -1,6 +1,7 @@
 package com.t8rin.trickle.app
 
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,17 +32,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.scale
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
-import com.t8rin.trickle.BmpCompressor
-import com.t8rin.trickle.Trickle
+import com.t8rin.trickle.Oxipng
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
+import java.io.ByteArrayOutputStream
 import kotlin.random.Random
 
 
@@ -114,19 +116,26 @@ fun MainActivity.Jp2Hypothesis() {
                                     input: Bitmap,
                                     size: Size
                                 ): Bitmap {
-                                    return Trickle.bloom(
-                                        src = imageLoader.execute(
-                                            ImageRequest.Builder(this@Jp2Hypothesis)
-                                                .data(BmpCompressor.compress(input))
-                                                .build()
-                                        ).drawable?.toBitmap()!!,
-                                        threshold = 0.6f,
-                                        intensity = 2.5f,
-                                        radius = 35,
-                                        softKnee = 0.8f,
-                                        exposure = 0.04f,
-                                        gamma = 0.9f
+                                    val scaled = input.scale(2000, 2000)
+                                    val bytes = Oxipng.optimize(
+                                        bitmap = scaled,
+                                        options = Oxipng.Options.MAX_COMPRESSION
                                     )
+                                    val baseBytes = ByteArrayOutputStream().use {
+                                        scaled.compress(Bitmap.CompressFormat.PNG, 100, it)
+                                        it.toByteArray()
+                                    }
+
+                                    Log.d(
+                                        "OXIPNG",
+                                        "comparison base = ${baseBytes.size / 1024f / 1024f} MB, oxi = ${bytes.size / 1024f / 1024f} MB, diff = ${(baseBytes.size - bytes.size) / 1024f / 1024f} MB"
+                                    )
+
+                                    return imageLoader.execute(
+                                        ImageRequest.Builder(this@Jp2Hypothesis)
+                                            .data(bytes)
+                                            .build()
+                                    ).drawable?.toBitmap()!!
                                 }
                             }
                         )

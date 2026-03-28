@@ -1,0 +1,21 @@
+[package]
+name = "oxipng_jni"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "oxipng_jni"
+crate-type = ["cdylib"]
+path = "src/oxipng.rs"
+
+[dependencies]
+oxipng = { version = "10.1.0", default-features = false, features = ["parallel", "zopfli"] }
+jni = { version = "0.21", default-features = false }
+png = "0.17"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
