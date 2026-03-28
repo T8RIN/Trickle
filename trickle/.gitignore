@@ -2,3 +2,4 @@
 /.cxx
 /src/main/rust/Cargo.lock
 /src/main/rust/target/
+/src/main/rust/.idea/

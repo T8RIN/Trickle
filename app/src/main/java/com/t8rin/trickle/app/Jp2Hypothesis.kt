@@ -103,44 +103,68 @@ fun MainActivity.Jp2Hypothesis() {
             modifier = Modifier.weight(1f)
         ) {
             AsyncImage(
-                model = ImageRequest.Builder(this@Jp2Hypothesis)
-                    .data(source)
-                    .allowHardware(false)
-                    .transformations(
-                        listOf(
-                            object : Transformation {
-                                override val cacheKey: String
-                                    get() = Random.nextInt().toString()
+                model = remember(source, imageLoader) {
+                    ImageRequest.Builder(this@Jp2Hypothesis)
+                        .data(source)
+                        .allowHardware(false)
+                        .transformations(
+                            listOf(
+                                object : Transformation {
+                                    override val cacheKey: String
+                                        get() = Random.nextInt().toString()
 
-                                override suspend fun transform(
-                                    input: Bitmap,
-                                    size: Size
-                                ): Bitmap {
-                                    val scaled = input.scale(2000, 2000)
-                                    val bytes = Oxipng.optimize(
-                                        bitmap = scaled,
-                                        options = Oxipng.Options.MAX_COMPRESSION
-                                    )
-                                    val baseBytes = ByteArrayOutputStream().use {
-                                        scaled.compress(Bitmap.CompressFormat.PNG, 100, it)
-                                        it.toByteArray()
+                                    override suspend fun transform(
+                                        input: Bitmap,
+                                        size: Size
+                                    ): Bitmap {
+                                        val scaled = input.scale(500, 500)
+                                        var bytes = ByteArray(0)
+                                        var baseBytes = ByteArray(0)
+
+                                        val opts = listOf(false, true)
+
+                                        repeat(7) { level ->
+                                            opts.forEach { stripAll ->
+                                                opts.forEach { useZopfli ->
+                                                    val options = Oxipng.SimpleOptions(
+                                                        level = level,
+                                                        stripAll = stripAll,
+                                                        useZopfli = useZopfli
+                                                    )
+
+                                                    bytes = Oxipng.optimize(
+                                                        bitmap = scaled,
+                                                        options = options
+                                                    )
+                                                    baseBytes =
+                                                        ByteArrayOutputStream().use {
+                                                            scaled.compress(
+                                                                Bitmap.CompressFormat.PNG,
+                                                                100,
+                                                                it
+                                                            )
+                                                            it.toByteArray()
+                                                        }
+
+                                                    Log.d(
+                                                        "OXIPNG",
+                                                        "options = $options, comparison base = ${baseBytes.size / 1024f} KB, oxi = ${bytes.size / 1024f} KB, diff = ${(bytes.size - baseBytes.size) / 1024f} KB"
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        return imageLoader.execute(
+                                            ImageRequest.Builder(this@Jp2Hypothesis)
+                                                .data(bytes)
+                                                .build()
+                                        ).drawable?.toBitmap()!!
                                     }
-
-                                    Log.d(
-                                        "OXIPNG",
-                                        "comparison base = ${baseBytes.size / 1024f / 1024f} MB, oxi = ${bytes.size / 1024f / 1024f} MB, diff = ${(baseBytes.size - bytes.size) / 1024f / 1024f} MB"
-                                    )
-
-                                    return imageLoader.execute(
-                                        ImageRequest.Builder(this@Jp2Hypothesis)
-                                            .data(bytes)
-                                            .build()
-                                    ).drawable?.toBitmap()!!
                                 }
-                            }
+                            )
                         )
-                    )
-                    .build(),
+                        .build()
+                },
                 imageLoader = imageLoader,
                 modifier = Modifier.weight(1f),
                 contentDescription = null
