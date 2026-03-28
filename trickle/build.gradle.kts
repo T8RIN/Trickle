@@ -12,6 +12,7 @@ afterEvaluate {
                 groupId = "com.github.t8rin"
                 artifactId = "trickle"
                 version = libs.versions.libVersion.get()
+                from(components["release"])
             }
         }
     }
@@ -51,10 +52,14 @@ android {
         coreLibraryDesugaring(libs.desugaring)
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
-        }
+    publishing {
+        singleVariant("release") {}
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
     }
 }
 
