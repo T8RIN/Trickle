@@ -1,8 +1,6 @@
-import org.gradle.kotlin.dsl.assign
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("org.jetbrains.kotlin.android")
     id("com.android.library")
     id("maven-publish")
 }
@@ -14,7 +12,6 @@ afterEvaluate {
                 groupId = "com.github.t8rin"
                 artifactId = "trickle"
                 version = libs.versions.libVersion.get()
-                from(components["release"])
             }
         }
     }
@@ -33,7 +30,7 @@ android {
     }
     sourceSets.named("main") {
         jniLibs {
-            srcDir("src/main/libs")
+            directories.add("src/main/libs")
         }
     }
 

@@ -29,7 +29,3 @@ buildscript {
         classpath(libs.compose.compiler.gradle)
     }
 }
-
-tasks.register("clean", Delete::class) {
-    delete(rootProject.layout.buildDirectory)
-}
