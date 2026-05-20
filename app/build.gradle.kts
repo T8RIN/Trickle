@@ -15,6 +15,7 @@ android {
         targetSdk = libs.versions.androidTargetSdk.get().toIntOrNull()
         versionCode = 1
         versionName = libs.versions.libVersion.get()
+        ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
     }
     buildFeatures {
         compose = true

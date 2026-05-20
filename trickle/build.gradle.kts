@@ -21,7 +21,7 @@ afterEvaluate {
 android {
     namespace = "com.t8rin.trickle"
     defaultConfig {
-        ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+        ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
     }
     externalNativeBuild {
         cmake {
@@ -29,9 +29,11 @@ android {
             ndkVersion = "28.1.13356709"
         }
     }
-    sourceSets.named("main") {
-        jniLibs {
-            directories.add("src/main/libs")
+    sourceSets {
+        getByName("main") {
+            jniLibs {
+                directories.add("src/main/libs")
+            }
         }
     }
 

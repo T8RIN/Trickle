@@ -3,10 +3,15 @@ package com.t8rin.trickle.pipeline
 import android.graphics.Bitmap
 import android.graphics.Color
 import com.t8rin.trickle.EffectsPipeline
+import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.PopArtBlendMode
 import com.t8rin.trickle.TrickleUtils.safe
 
 internal object EffectsPipelineImpl : EffectsPipeline {
+
+    private val ntscLibrary = lazy {
+        System.loadLibrary("ntsc_jni")
+    }
 
     override fun oil(
         input: Bitmap,
@@ -219,6 +224,166 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         src: Bitmap,
         time: Float,
         strength: Float
+    ): Bitmap?
+
+    override fun ntsc(
+        src: Bitmap,
+        settings: NtscSettings,
+        frame: Int,
+        scaleFactorX: Float,
+        scaleFactorY: Float
+    ): Bitmap {
+        ntscLibrary.value
+
+        val headSwitching = settings.headSwitching
+        val headSwitchingMidLine = headSwitching?.midLine
+        val trackingNoise = settings.trackingNoise
+        val compositeNoise = settings.compositeNoise
+        val ringing = settings.ringing
+        val lumaNoise = settings.lumaNoise
+        val chromaNoise = settings.chromaNoise
+        val vhs = settings.vhs
+        val vhsSharpen = vhs?.sharpen
+        val vhsEdgeWave = vhs?.edgeWave
+        val scale = settings.scale
+
+        return ntscImpl(
+            input = src.safe(),
+            frame = frame,
+            scaleFactorX = scaleFactorX,
+            scaleFactorY = scaleFactorY,
+            randomSeed = settings.randomSeed,
+            useField = settings.useField.ordinal,
+            filterType = settings.filterType.ordinal,
+            inputLumaFilter = settings.inputLumaFilter.ordinal,
+            chromaLowpassIn = settings.chromaLowpassIn.ordinal,
+            chromaDemodulation = settings.chromaDemodulation.ordinal,
+            lumaSmear = settings.lumaSmear,
+            compositeSharpening = settings.compositeSharpening,
+            videoScanlinePhaseShift = settings.videoScanlinePhaseShift.ordinal,
+            videoScanlinePhaseShiftOffset = settings.videoScanlinePhaseShiftOffset,
+            headSwitchingEnabled = headSwitching != null,
+            headSwitchingHeight = headSwitching?.height ?: 0,
+            headSwitchingOffset = headSwitching?.offset ?: 0,
+            headSwitchingHorizontalShift = headSwitching?.horizontalShift ?: 0f,
+            headSwitchingMidLineEnabled = headSwitchingMidLine != null,
+            headSwitchingMidLinePosition = headSwitchingMidLine?.position ?: 0f,
+            headSwitchingMidLineJitter = headSwitchingMidLine?.jitter ?: 0f,
+            trackingNoiseEnabled = trackingNoise != null,
+            trackingNoiseHeight = trackingNoise?.height ?: 0,
+            trackingNoiseWaveIntensity = trackingNoise?.waveIntensity ?: 0f,
+            trackingNoiseSnowIntensity = trackingNoise?.snowIntensity ?: 0f,
+            trackingNoiseSnowAnisotropy = trackingNoise?.snowAnisotropy ?: 0f,
+            trackingNoiseNoiseIntensity = trackingNoise?.noiseIntensity ?: 0f,
+            compositeNoiseEnabled = compositeNoise != null,
+            compositeNoiseFrequency = compositeNoise?.frequency ?: 0f,
+            compositeNoiseIntensity = compositeNoise?.intensity ?: 0f,
+            compositeNoiseDetail = compositeNoise?.detail ?: 0,
+            ringingEnabled = ringing != null,
+            ringingFrequency = ringing?.frequency ?: 0f,
+            ringingPower = ringing?.power ?: 0f,
+            ringingIntensity = ringing?.intensity ?: 0f,
+            lumaNoiseEnabled = lumaNoise != null,
+            lumaNoiseFrequency = lumaNoise?.frequency ?: 0f,
+            lumaNoiseIntensity = lumaNoise?.intensity ?: 0f,
+            lumaNoiseDetail = lumaNoise?.detail ?: 0,
+            chromaNoiseEnabled = chromaNoise != null,
+            chromaNoiseFrequency = chromaNoise?.frequency ?: 0f,
+            chromaNoiseIntensity = chromaNoise?.intensity ?: 0f,
+            chromaNoiseDetail = chromaNoise?.detail ?: 0,
+            snowIntensity = settings.snowIntensity,
+            snowAnisotropy = settings.snowAnisotropy,
+            chromaPhaseNoiseIntensity = settings.chromaPhaseNoiseIntensity,
+            chromaPhaseError = settings.chromaPhaseError,
+            chromaDelayHorizontal = settings.chromaDelayHorizontal,
+            chromaDelayVertical = settings.chromaDelayVertical,
+            vhsEnabled = vhs != null,
+            vhsTapeSpeed = vhs?.tapeSpeed?.ordinal ?: 0,
+            vhsChromaLoss = vhs?.chromaLoss ?: 0f,
+            vhsSharpenEnabled = vhsSharpen != null,
+            vhsSharpenIntensity = vhsSharpen?.intensity ?: 0f,
+            vhsSharpenFrequency = vhsSharpen?.frequency ?: 0f,
+            vhsEdgeWaveEnabled = vhsEdgeWave != null,
+            vhsEdgeWaveIntensity = vhsEdgeWave?.intensity ?: 0f,
+            vhsEdgeWaveSpeed = vhsEdgeWave?.speed ?: 0f,
+            vhsEdgeWaveFrequency = vhsEdgeWave?.frequency ?: 0f,
+            vhsEdgeWaveDetail = vhsEdgeWave?.detail ?: 0,
+            chromaVertBlend = settings.chromaVertBlend,
+            chromaLowpassOut = settings.chromaLowpassOut.ordinal,
+            scaleEnabled = scale != null,
+            scaleHorizontal = scale?.horizontal ?: 1f,
+            scaleVertical = scale?.vertical ?: 1f,
+            scaleWithVideoSize = scale?.scaleWithVideoSize ?: false
+        ) ?: src
+    }
+
+    private external fun ntscImpl(
+        input: Bitmap,
+        frame: Int,
+        scaleFactorX: Float,
+        scaleFactorY: Float,
+        randomSeed: Int,
+        useField: Int,
+        filterType: Int,
+        inputLumaFilter: Int,
+        chromaLowpassIn: Int,
+        chromaDemodulation: Int,
+        lumaSmear: Float,
+        compositeSharpening: Float,
+        videoScanlinePhaseShift: Int,
+        videoScanlinePhaseShiftOffset: Int,
+        headSwitchingEnabled: Boolean,
+        headSwitchingHeight: Int,
+        headSwitchingOffset: Int,
+        headSwitchingHorizontalShift: Float,
+        headSwitchingMidLineEnabled: Boolean,
+        headSwitchingMidLinePosition: Float,
+        headSwitchingMidLineJitter: Float,
+        trackingNoiseEnabled: Boolean,
+        trackingNoiseHeight: Int,
+        trackingNoiseWaveIntensity: Float,
+        trackingNoiseSnowIntensity: Float,
+        trackingNoiseSnowAnisotropy: Float,
+        trackingNoiseNoiseIntensity: Float,
+        compositeNoiseEnabled: Boolean,
+        compositeNoiseFrequency: Float,
+        compositeNoiseIntensity: Float,
+        compositeNoiseDetail: Int,
+        ringingEnabled: Boolean,
+        ringingFrequency: Float,
+        ringingPower: Float,
+        ringingIntensity: Float,
+        lumaNoiseEnabled: Boolean,
+        lumaNoiseFrequency: Float,
+        lumaNoiseIntensity: Float,
+        lumaNoiseDetail: Int,
+        chromaNoiseEnabled: Boolean,
+        chromaNoiseFrequency: Float,
+        chromaNoiseIntensity: Float,
+        chromaNoiseDetail: Int,
+        snowIntensity: Float,
+        snowAnisotropy: Float,
+        chromaPhaseNoiseIntensity: Float,
+        chromaPhaseError: Float,
+        chromaDelayHorizontal: Float,
+        chromaDelayVertical: Int,
+        vhsEnabled: Boolean,
+        vhsTapeSpeed: Int,
+        vhsChromaLoss: Float,
+        vhsSharpenEnabled: Boolean,
+        vhsSharpenIntensity: Float,
+        vhsSharpenFrequency: Float,
+        vhsEdgeWaveEnabled: Boolean,
+        vhsEdgeWaveIntensity: Float,
+        vhsEdgeWaveSpeed: Float,
+        vhsEdgeWaveFrequency: Float,
+        vhsEdgeWaveDetail: Int,
+        chromaVertBlend: Boolean,
+        chromaLowpassOut: Int,
+        scaleEnabled: Boolean,
+        scaleHorizontal: Float,
+        scaleVertical: Float,
+        scaleWithVideoSize: Boolean,
     ): Bitmap?
 
     override fun blockGlitch(

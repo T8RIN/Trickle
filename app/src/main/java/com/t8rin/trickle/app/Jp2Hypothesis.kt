@@ -8,9 +8,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -39,11 +44,14 @@ import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
+import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.Oxipng
+import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
 import java.io.ByteArrayOutputStream
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 
@@ -54,7 +62,7 @@ fun MainActivity.Jp2Hypothesis() {
     }
 
     var target by remember {
-        mutableStateOf<String>("")
+        mutableStateOf("")
     }
 
 
@@ -86,12 +94,25 @@ fun MainActivity.Jp2Hypothesis() {
     var colorValue by remember {
         mutableStateOf(1f)
     }
+    var ntscFrame by remember {
+        mutableStateOf(0)
+    }
+    var ntscScaleFactorX by remember {
+        mutableStateOf(1f)
+    }
+    var ntscScaleFactorY by remember {
+        mutableStateOf(1f)
+    }
+    var ntscSettings by remember {
+        mutableStateOf(NtscSettings.DEFAULT)
+    }
 
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         val imageLoader = remember {
             imageLoader.newBuilder().logger(DebugLogger()).build()
@@ -100,7 +121,7 @@ fun MainActivity.Jp2Hypothesis() {
             mutableStateOf(true)
         }
         Row(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.height(300.dp)
         ) {
             AsyncImage(
                 model = remember(source, imageLoader) {
@@ -178,8 +199,49 @@ fun MainActivity.Jp2Hypothesis() {
             Switch(checked = isGray, onCheckedChange = { isGray = it })
         }
 
+        Text("NTSC")
+        AsyncImage(
+            model = remember(source, ntscSettings, ntscFrame, ntscScaleFactorX, ntscScaleFactorY) {
+                ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+                    .data(source)
+                    .transformations(
+                        GenericTransformation(
+                            key = listOf(
+                                ntscSettings,
+                                ntscFrame,
+                                ntscScaleFactorX,
+                                ntscScaleFactorY
+                            )
+                        ) { bmp ->
+                            Trickle.ntsc(
+                                src = bmp,
+                                frame = ntscFrame,
+                                scaleFactorX = ntscScaleFactorX,
+                                scaleFactorY = ntscScaleFactorY,
+                                settings = ntscSettings
+                            )
+                        }
+                    )
+                    .build()
+            },
+            imageLoader = imageLoader,
+            modifier = Modifier.height(280.dp),
+            contentDescription = null,
+            contentScale = ContentScale.Fit
+        )
+        NtscControls(
+            frame = ntscFrame,
+            onFrameChange = { ntscFrame = it },
+            scaleFactorX = ntscScaleFactorX,
+            onScaleFactorXChange = { ntscScaleFactorX = it },
+            scaleFactorY = ntscScaleFactorY,
+            onScaleFactorYChange = { ntscScaleFactorY = it },
+            settings = ntscSettings,
+            onSettingsChange = { ntscSettings = it }
+        )
+
         Row(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.height(360.dp)
         ) {
 //            Column(
 //                modifier = Modifier
@@ -295,6 +357,386 @@ fun MainActivity.Jp2Hypothesis() {
         }
         Slider(value = colorValue, onValueChange = { colorValue = it }, valueRange = 0f..1f)
     }
+}
+
+@Composable
+private fun NtscControls(
+    frame: Int,
+    onFrameChange: (Int) -> Unit,
+    scaleFactorX: Float,
+    onScaleFactorXChange: (Float) -> Unit,
+    scaleFactorY: Float,
+    onScaleFactorYChange: (Float) -> Unit,
+    settings: NtscSettings,
+    onSettingsChange: (NtscSettings) -> Unit
+) {
+    Section("Frame") {
+        IntStepper("Frame", frame, 1, onFrameChange)
+        FloatSlider("Scale factor X", scaleFactorX, 0.125f..8f, onScaleFactorXChange)
+        FloatSlider("Scale factor Y", scaleFactorY, 0.125f..8f, onScaleFactorYChange)
+        IntStepper("Random seed", settings.randomSeed, 1) {
+            onSettingsChange(settings.copy(randomSeed = it))
+        }
+    }
+
+    Section("Signal") {
+        EnumCycle("Use field", settings.useField, NtscSettings.UseField.entries) {
+            onSettingsChange(settings.copy(useField = it))
+        }
+        EnumCycle("Filter type", settings.filterType, NtscSettings.FilterType.entries) {
+            onSettingsChange(settings.copy(filterType = it))
+        }
+        EnumCycle("Input luma filter", settings.inputLumaFilter, NtscSettings.LumaLowpass.entries) {
+            onSettingsChange(settings.copy(inputLumaFilter = it))
+        }
+        EnumCycle(
+            "Chroma lowpass in",
+            settings.chromaLowpassIn,
+            NtscSettings.ChromaLowpass.entries
+        ) {
+            onSettingsChange(settings.copy(chromaLowpassIn = it))
+        }
+        EnumCycle(
+            "Chroma demodulation",
+            settings.chromaDemodulation,
+            NtscSettings.ChromaDemodulationFilter.entries
+        ) {
+            onSettingsChange(settings.copy(chromaDemodulation = it))
+        }
+        EnumCycle(
+            "Phase shift",
+            settings.videoScanlinePhaseShift,
+            NtscSettings.PhaseShift.entries
+        ) {
+            onSettingsChange(settings.copy(videoScanlinePhaseShift = it))
+        }
+        IntStepper("Phase shift offset", settings.videoScanlinePhaseShiftOffset, 1) {
+            onSettingsChange(settings.copy(videoScanlinePhaseShiftOffset = it))
+        }
+        FloatSlider("Luma smear", settings.lumaSmear, 0f..5f) {
+            onSettingsChange(settings.copy(lumaSmear = it))
+        }
+        FloatSlider("Composite sharpening", settings.compositeSharpening, -5f..5f) {
+            onSettingsChange(settings.copy(compositeSharpening = it))
+        }
+        FloatSlider("Snow intensity", settings.snowIntensity, 0f..0.01f) {
+            onSettingsChange(settings.copy(snowIntensity = it))
+        }
+        FloatSlider("Snow anisotropy", settings.snowAnisotropy, 0f..1f) {
+            onSettingsChange(settings.copy(snowAnisotropy = it))
+        }
+        FloatSlider("Chroma phase noise", settings.chromaPhaseNoiseIntensity, 0f..0.05f) {
+            onSettingsChange(settings.copy(chromaPhaseNoiseIntensity = it))
+        }
+        FloatSlider("Chroma phase error", settings.chromaPhaseError, 0f..1f) {
+            onSettingsChange(settings.copy(chromaPhaseError = it))
+        }
+        FloatSlider("Chroma delay horizontal", settings.chromaDelayHorizontal, -40f..40f) {
+            onSettingsChange(settings.copy(chromaDelayHorizontal = it))
+        }
+        IntSlider("Chroma delay vertical", settings.chromaDelayVertical, -40..40) {
+            onSettingsChange(settings.copy(chromaDelayVertical = it))
+        }
+        ToggleSetting("Chroma vertical blend", settings.chromaVertBlend) {
+            onSettingsChange(settings.copy(chromaVertBlend = it))
+        }
+        EnumCycle(
+            "Chroma lowpass out",
+            settings.chromaLowpassOut,
+            NtscSettings.ChromaLowpass.entries
+        ) {
+            onSettingsChange(settings.copy(chromaLowpassOut = it))
+        }
+    }
+
+    NullableBlock(
+        label = "Head switching",
+        value = settings.headSwitching,
+        defaultValue = NtscSettings.HeadSwitching(),
+        onValueChange = { onSettingsChange(settings.copy(headSwitching = it)) }
+    ) { value, update ->
+        IntSlider("Height", value.height, 0..80) { update(value.copy(height = it)) }
+        IntSlider("Offset", value.offset, -80..80) { update(value.copy(offset = it)) }
+        FloatSlider("Horizontal shift", value.horizontalShift, -200f..200f) {
+            update(value.copy(horizontalShift = it))
+        }
+        NullableBlock(
+            label = "Mid line",
+            value = value.midLine,
+            defaultValue = NtscSettings.HeadSwitchingMidLine(),
+            onValueChange = { update(value.copy(midLine = it)) }
+        ) { midLine, updateMidLine ->
+            FloatSlider("Position", midLine.position, 0f..1f) {
+                updateMidLine(midLine.copy(position = it))
+            }
+            FloatSlider("Jitter", midLine.jitter, 0f..0.2f) {
+                updateMidLine(midLine.copy(jitter = it))
+            }
+        }
+    }
+
+    NullableBlock(
+        label = "Tracking noise",
+        value = settings.trackingNoise,
+        defaultValue = NtscSettings.TrackingNoise(),
+        onValueChange = { onSettingsChange(settings.copy(trackingNoise = it)) }
+    ) { value, update ->
+        IntSlider("Height", value.height, 0..100) { update(value.copy(height = it)) }
+        FloatSlider("Wave intensity", value.waveIntensity, 0f..80f) {
+            update(value.copy(waveIntensity = it))
+        }
+        FloatSlider("Snow intensity", value.snowIntensity, 0f..0.5f) {
+            update(value.copy(snowIntensity = it))
+        }
+        FloatSlider("Snow anisotropy", value.snowAnisotropy, 0f..1f) {
+            update(value.copy(snowAnisotropy = it))
+        }
+        FloatSlider("Noise intensity", value.noiseIntensity, 0f..2f) {
+            update(value.copy(noiseIntensity = it))
+        }
+    }
+
+    FbmBlock("Composite noise", settings.compositeNoise, NtscSettings.FbmNoise(0.5f, 0.05f, 1)) {
+        onSettingsChange(settings.copy(compositeNoise = it))
+    }
+    FbmBlock("Luma noise", settings.lumaNoise, NtscSettings.FbmNoise(0.5f, 0.01f, 1)) {
+        onSettingsChange(settings.copy(lumaNoise = it))
+    }
+    FbmBlock("Chroma noise", settings.chromaNoise, NtscSettings.FbmNoise(0.05f, 0.1f, 2)) {
+        onSettingsChange(settings.copy(chromaNoise = it))
+    }
+
+    NullableBlock(
+        label = "Ringing",
+        value = settings.ringing,
+        defaultValue = NtscSettings.Ringing(),
+        onValueChange = { onSettingsChange(settings.copy(ringing = it)) }
+    ) { value, update ->
+        FloatSlider("Frequency", value.frequency, 0f..1f) { update(value.copy(frequency = it)) }
+        FloatSlider("Power", value.power, 0f..10f) { update(value.copy(power = it)) }
+        FloatSlider("Intensity", value.intensity, 0f..10f) { update(value.copy(intensity = it)) }
+    }
+
+    NullableBlock(
+        label = "VHS",
+        value = settings.vhs,
+        defaultValue = NtscSettings.VHS(),
+        onValueChange = { onSettingsChange(settings.copy(vhs = it)) }
+    ) { value, update ->
+        EnumCycle("Tape speed", value.tapeSpeed, NtscSettings.VHSTapeSpeed.entries) {
+            update(value.copy(tapeSpeed = it))
+        }
+        FloatSlider("Chroma loss", value.chromaLoss, 0f..0.01f) {
+            update(value.copy(chromaLoss = it))
+        }
+        NullableBlock(
+            label = "Sharpen",
+            value = value.sharpen,
+            defaultValue = NtscSettings.VHSSharpen(),
+            onValueChange = { update(value.copy(sharpen = it)) }
+        ) { sharpen, updateSharpen ->
+            FloatSlider("Intensity", sharpen.intensity, 0f..5f) {
+                updateSharpen(sharpen.copy(intensity = it))
+            }
+            FloatSlider("Frequency", sharpen.frequency, 0.5f..4f) {
+                updateSharpen(sharpen.copy(frequency = it))
+            }
+        }
+        NullableBlock(
+            label = "Edge wave",
+            value = value.edgeWave,
+            defaultValue = NtscSettings.VHSEdgeWave(),
+            onValueChange = { update(value.copy(edgeWave = it)) }
+        ) { edgeWave, updateEdgeWave ->
+            FloatSlider("Intensity", edgeWave.intensity, 0f..20f) {
+                updateEdgeWave(edgeWave.copy(intensity = it))
+            }
+            FloatSlider("Speed", edgeWave.speed, 0f..10f) {
+                updateEdgeWave(edgeWave.copy(speed = it))
+            }
+            FloatSlider("Frequency", edgeWave.frequency, 0f..0.5f) {
+                updateEdgeWave(edgeWave.copy(frequency = it))
+            }
+            IntSlider("Detail", edgeWave.detail, 1..5) {
+                updateEdgeWave(edgeWave.copy(detail = it))
+            }
+        }
+    }
+
+    NullableBlock(
+        label = "Scale settings",
+        value = settings.scale,
+        defaultValue = NtscSettings.Scale(),
+        onValueChange = { onSettingsChange(settings.copy(scale = it)) }
+    ) { value, update ->
+        FloatSlider("Horizontal", value.horizontal, 0.125f..8f) {
+            update(value.copy(horizontal = it))
+        }
+        FloatSlider("Vertical", value.vertical, 0.125f..8.8f) {
+            update(value.copy(vertical = it))
+        }
+        ToggleSetting("Scale with video size", value.scaleWithVideoSize) {
+            update(value.copy(scaleWithVideoSize = it))
+        }
+    }
+}
+
+@Composable
+private fun Section(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+    ) {
+        Text(title)
+        content()
+    }
+}
+
+@Composable
+private fun <T : Enum<T>> EnumCycle(
+    label: String,
+    value: T,
+    values: List<T>,
+    onValueChange: (T) -> Unit
+) {
+    Button(
+        onClick = {
+            val next = values[(values.indexOf(value) + 1) % values.size]
+            onValueChange(next)
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("$label: ${value.name}")
+    }
+}
+
+@Composable
+private fun FloatSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("$label: ${value.shortString()}")
+        Slider(
+            value = value.coerceIn(range.start, range.endInclusive),
+            onValueChange = onValueChange,
+            valueRange = range,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun IntSlider(
+    label: String,
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("$label: $value")
+        Slider(
+            value = value.coerceIn(range.first, range.last).toFloat(),
+            onValueChange = { onValueChange(it.roundToInt().coerceIn(range.first, range.last)) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = (range.last - range.first - 1).coerceAtLeast(0),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun IntStepper(
+    label: String,
+    value: Int,
+    step: Int,
+    onValueChange: (Int) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { onValueChange(value - step) }) {
+            Text("-")
+        }
+        Text(
+            text = "$label: $value",
+            modifier = Modifier
+                .weight(1f)
+                .padding(12.dp)
+        )
+        Button(onClick = { onValueChange(value + step) }) {
+            Text("+")
+        }
+    }
+}
+
+@Composable
+private fun ToggleSetting(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            modifier = Modifier
+                .weight(1f)
+                .padding(vertical = 12.dp)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun <T> NullableBlock(
+    label: String,
+    value: T?,
+    defaultValue: T,
+    onValueChange: (T?) -> Unit,
+    content: @Composable ColumnScope.(T, (T) -> Unit) -> Unit
+) {
+    Section(label) {
+        ToggleSetting("Enabled", value != null) { enabled ->
+            onValueChange(if (enabled) value ?: defaultValue else null)
+        }
+        value?.let {
+            content(it) { updated -> onValueChange(updated) }
+        }
+    }
+}
+
+@Composable
+private fun FbmBlock(
+    label: String,
+    value: NtscSettings.FbmNoise?,
+    defaultValue: NtscSettings.FbmNoise,
+    onValueChange: (NtscSettings.FbmNoise?) -> Unit
+) {
+    NullableBlock(
+        label = label,
+        value = value,
+        defaultValue = defaultValue,
+        onValueChange = onValueChange
+    ) { noise, update ->
+        FloatSlider("Frequency", noise.frequency, 0f..2f) {
+            update(noise.copy(frequency = it))
+        }
+        FloatSlider("Intensity", noise.intensity, 0f..1f) {
+            update(noise.copy(intensity = it))
+        }
+        IntSlider("Detail", noise.detail, 0..5) {
+            update(noise.copy(detail = it))
+        }
+    }
+}
+
+private fun Float.shortString(): String {
+    val rounded = (this * 10_000f).roundToInt() / 10_000f
+    return rounded.toString()
 }
 
 class GenericTransformation(

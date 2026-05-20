@@ -116,6 +116,14 @@ interface EffectsPipeline {
         strength: Float = 3f
     ): Bitmap
 
+    fun ntsc(
+        src: Bitmap,
+        settings: NtscSettings = NtscSettings.DEFAULT,
+        frame: Int = 0,
+        scaleFactorX: Float = 1f,
+        scaleFactorY: Float = 1f
+    ): Bitmap
+
     fun blockGlitch(
         src: Bitmap,
         strength: Float = 0.02f,

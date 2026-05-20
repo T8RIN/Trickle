@@ -1,0 +1,19 @@
+[package]
+name = "ntsc_jni"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "ntsc_jni"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+jni = { version = "0.21", default-features = false }
+ntsc-rs = { git = "https://github.com/ntsc-rs/ntsc-rs", rev = "add90f5bf1bf7e3c573e4e945a16f44a82941b51", package = "ntsc-rs" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
