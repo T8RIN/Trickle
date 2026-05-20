@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -107,142 +108,153 @@ fun MainActivity.Jp2Hypothesis() {
         mutableStateOf(NtscSettings.DEFAULT)
     }
 
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        val imageLoader = remember {
-            imageLoader.newBuilder().logger(DebugLogger()).build()
-        }
-        var isGray by remember {
-            mutableStateOf(true)
-        }
-        Row(
-            modifier = Modifier.height(300.dp)
-        ) {
+    Scaffold(
+        topBar = {
+            Text("NTSC")
             AsyncImage(
-                model = remember(source, imageLoader) {
-                    ImageRequest.Builder(this@Jp2Hypothesis)
+                model = remember(
+                    source,
+                    ntscSettings,
+                    ntscFrame,
+                    ntscScaleFactorX,
+                    ntscScaleFactorY
+                ) {
+                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
                         .data(source)
-                        .allowHardware(false)
                         .transformations(
-                            listOf(
-                                object : Transformation {
-                                    override val cacheKey: String
-                                        get() = Random.nextInt().toString()
-
-                                    override suspend fun transform(
-                                        input: Bitmap,
-                                        size: Size
-                                    ): Bitmap {
-                                        val scaled = input.scale(500, 500)
-                                        var bytes = ByteArray(0)
-                                        var baseBytes = ByteArray(0)
-
-                                        val opts = listOf(false, true)
-
-                                        repeat(7) { level ->
-                                            opts.forEach { stripAll ->
-                                                opts.forEach { useZopfli ->
-                                                    val options = Oxipng.SimpleOptions(
-                                                        level = level,
-                                                        stripAll = stripAll,
-                                                        useZopfli = useZopfli
-                                                    )
-
-                                                    bytes = Oxipng.optimize(
-                                                        bitmap = scaled,
-                                                        options = options
-                                                    )
-                                                    baseBytes =
-                                                        ByteArrayOutputStream().use {
-                                                            scaled.compress(
-                                                                Bitmap.CompressFormat.PNG,
-                                                                100,
-                                                                it
-                                                            )
-                                                            it.toByteArray()
-                                                        }
-
-                                                    Log.d(
-                                                        "OXIPNG",
-                                                        "options = $options, comparison base = ${baseBytes.size / 1024f} KB, oxi = ${bytes.size / 1024f} KB, diff = ${(bytes.size - baseBytes.size) / 1024f} KB"
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        return imageLoader.execute(
-                                            ImageRequest.Builder(this@Jp2Hypothesis)
-                                                .data(bytes)
-                                                .build()
-                                        ).drawable?.toBitmap()!!
-                                    }
-                                }
-                            )
+                            GenericTransformation(
+                                key = listOf(
+                                    ntscSettings,
+                                    ntscFrame,
+                                    ntscScaleFactorX,
+                                    ntscScaleFactorY
+                                )
+                            ) { bmp ->
+                                Trickle.ntsc(
+                                    src = bmp,
+                                    frame = ntscFrame,
+                                    scaleFactorX = ntscScaleFactorX,
+                                    scaleFactorY = ntscScaleFactorY,
+                                    settings = ntscSettings
+                                )
+                            }
                         )
                         .build()
                 },
                 imageLoader = imageLoader,
-                modifier = Modifier.weight(1f),
-                contentDescription = null
+                modifier = Modifier.height(280.dp),
+                contentDescription = null,
+                contentScale = ContentScale.Fit
             )
-            AsyncImage(
-                model = target,
-                imageLoader = imageLoader,
-                modifier = Modifier.weight(1f),
-                contentDescription = null
-            )
-            Switch(checked = isGray, onCheckedChange = { isGray = it })
         }
-
-        Text("NTSC")
-        AsyncImage(
-            model = remember(source, ntscSettings, ntscFrame, ntscScaleFactorX, ntscScaleFactorY) {
-                ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
-                    .data(source)
-                    .transformations(
-                        GenericTransformation(
-                            key = listOf(
-                                ntscSettings,
-                                ntscFrame,
-                                ntscScaleFactorX,
-                                ntscScaleFactorY
-                            )
-                        ) { bmp ->
-                            Trickle.ntsc(
-                                src = bmp,
-                                frame = ntscFrame,
-                                scaleFactorX = ntscScaleFactorX,
-                                scaleFactorY = ntscScaleFactorY,
-                                settings = ntscSettings
-                            )
-                        }
-                    )
-                    .build()
-            },
-            imageLoader = imageLoader,
-            modifier = Modifier.height(280.dp),
-            contentDescription = null,
-            contentScale = ContentScale.Fit
-        )
-        NtscControls(
-            frame = ntscFrame,
-            onFrameChange = { ntscFrame = it },
-            scaleFactorX = ntscScaleFactorX,
-            onScaleFactorXChange = { ntscScaleFactorX = it },
-            scaleFactorY = ntscScaleFactorY,
-            onScaleFactorYChange = { ntscScaleFactorY = it },
-            settings = ntscSettings,
-            onSettingsChange = { ntscSettings = it }
-        )
-
-        Row(
-            modifier = Modifier.height(360.dp)
+    ) { contentPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(contentPadding)
         ) {
+            val imageLoader = remember {
+                imageLoader.newBuilder().logger(DebugLogger()).build()
+            }
+            var isGray by remember {
+                mutableStateOf(true)
+            }
+            Row(
+                modifier = Modifier.height(300.dp)
+            ) {
+                AsyncImage(
+                    model = remember(source, imageLoader) {
+                        ImageRequest.Builder(this@Jp2Hypothesis)
+                            .data(source)
+                            .allowHardware(false)
+                            .transformations(
+                                listOf(
+                                    object : Transformation {
+                                        override val cacheKey: String
+                                            get() = Random.nextInt().toString()
+
+                                        override suspend fun transform(
+                                            input: Bitmap,
+                                            size: Size
+                                        ): Bitmap {
+                                            val scaled = input.scale(500, 500)
+                                            var bytes = ByteArray(0)
+                                            var baseBytes = ByteArray(0)
+
+                                            val opts = listOf(false, true)
+
+                                            repeat(7) { level ->
+                                                opts.forEach { stripAll ->
+                                                    opts.forEach { useZopfli ->
+                                                        val options = Oxipng.SimpleOptions(
+                                                            level = level,
+                                                            stripAll = stripAll,
+                                                            useZopfli = useZopfli
+                                                        )
+
+                                                        bytes = Oxipng.optimize(
+                                                            bitmap = scaled,
+                                                            options = options
+                                                        )
+                                                        baseBytes =
+                                                            ByteArrayOutputStream().use {
+                                                                scaled.compress(
+                                                                    Bitmap.CompressFormat.PNG,
+                                                                    100,
+                                                                    it
+                                                                )
+                                                                it.toByteArray()
+                                                            }
+
+                                                        Log.d(
+                                                            "OXIPNG",
+                                                            "options = $options, comparison base = ${baseBytes.size / 1024f} KB, oxi = ${bytes.size / 1024f} KB, diff = ${(bytes.size - baseBytes.size) / 1024f} KB"
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            return imageLoader.execute(
+                                                ImageRequest.Builder(this@Jp2Hypothesis)
+                                                    .data(bytes)
+                                                    .build()
+                                            ).drawable?.toBitmap()!!
+                                        }
+                                    }
+                                )
+                            )
+                            .build()
+                    },
+                    imageLoader = imageLoader,
+                    modifier = Modifier.weight(1f),
+                    contentDescription = null
+                )
+                AsyncImage(
+                    model = target,
+                    imageLoader = imageLoader,
+                    modifier = Modifier.weight(1f),
+                    contentDescription = null
+                )
+                Switch(checked = isGray, onCheckedChange = { isGray = it })
+            }
+
+
+            NtscControls(
+                frame = ntscFrame,
+                onFrameChange = { ntscFrame = it },
+                scaleFactorX = ntscScaleFactorX,
+                onScaleFactorXChange = { ntscScaleFactorX = it },
+                scaleFactorY = ntscScaleFactorY,
+                onScaleFactorYChange = { ntscScaleFactorY = it },
+                settings = ntscSettings,
+                onSettingsChange = { ntscSettings = it }
+            )
+
+            Row(
+                modifier = Modifier.height(360.dp)
+            ) {
 //            Column(
 //                modifier = Modifier
 //                    .weight(1f)
@@ -294,68 +306,69 @@ fun MainActivity.Jp2Hypothesis() {
 ////                    )
 ////                }
 //            }
-            var last by remember { mutableStateOf<Offset?>(null) }
-            var warpEngine by remember {
-                mutableStateOf<WarpEngine?>(null)
-            }
-            var invalidate by remember {
-                mutableStateOf(0)
-            }
-            val model by remember(invalidate) {
-                derivedStateOf {
-                    warpEngine?.render()?.asImageBitmap() ?: ImageBitmap(1, 1)
+                var last by remember { mutableStateOf<Offset?>(null) }
+                var warpEngine by remember {
+                    mutableStateOf<WarpEngine?>(null)
                 }
-            }
-            LaunchedEffect(source) {
-                warpEngine = imageLoader.execute(
-                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
-                        .data(source)
-                        .size(1200)
-                        .build()
-                ).drawable?.toBitmap()?.let { WarpEngine(it) }
-            }
+                var invalidate by remember {
+                    mutableStateOf(0)
+                }
+                val model by remember(invalidate) {
+                    derivedStateOf {
+                        warpEngine?.render()?.asImageBitmap() ?: ImageBitmap(1, 1)
+                    }
+                }
+                LaunchedEffect(source) {
+                    warpEngine = imageLoader.execute(
+                        ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+                            .data(source)
+                            .size(1200)
+                            .build()
+                    ).drawable?.toBitmap()?.let { WarpEngine(it) }
+                }
 
-            Image(
-                bitmap = model,
-                modifier = Modifier
-                    .weight(1f)
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragEnd = { last = null }
-                        ) { change, _ ->
-                            val engine = warpEngine ?: return@detectDragGestures
-                            val p = change.position
+                Image(
+                    bitmap = model,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragEnd = { last = null }
+                            ) { change, _ ->
+                                val engine = warpEngine ?: return@detectDragGestures
+                                val p = change.position
 
-                            last?.let {
-                                val from = mapToBitmap(it, size, model.asAndroidBitmap())
-                                val to = mapToBitmap(p, size, model.asAndroidBitmap())
+                                last?.let {
+                                    val from = mapToBitmap(it, size, model.asAndroidBitmap())
+                                    val to = mapToBitmap(p, size, model.asAndroidBitmap())
 
-                                engine.applyStroke(
-                                    from.x, from.y,
-                                    to.x, to.y,
-                                    WarpBrush(80f, 1f, 0.4f),
-                                    WarpMode.MIXING
-                                )
-                                invalidate++
+                                    engine.applyStroke(
+                                        from.x, from.y,
+                                        to.x, to.y,
+                                        WarpBrush(80f, 1f, 0.4f),
+                                        WarpMode.MIXING
+                                    )
+                                    invalidate++
+                                }
+                                last = p
                             }
-                            last = p
-                        }
-                    },
-                contentDescription = null,
-                contentScale = ContentScale.FillHeight
-            )
-        }
+                        },
+                    contentDescription = null,
+                    contentScale = ContentScale.FillHeight
+                )
+            }
 
-        Row {
-            Button(onClick = pickImage) {
-                Text("Source")
+            Row {
+                Button(onClick = pickImage) {
+                    Text("Source")
+                }
+                Button(onClick = pickImage2) {
+                    Text("Target")
+                }
+                Slider(value = intensity, onValueChange = { intensity = it }, valueRange = 0f..1f)
             }
-            Button(onClick = pickImage2) {
-                Text("Target")
-            }
-            Slider(value = intensity, onValueChange = { intensity = it }, valueRange = 0f..1f)
+            Slider(value = colorValue, onValueChange = { colorValue = it }, valueRange = 0f..1f)
         }
-        Slider(value = colorValue, onValueChange = { colorValue = it }, valueRange = 0f..1f)
     }
 }
 
