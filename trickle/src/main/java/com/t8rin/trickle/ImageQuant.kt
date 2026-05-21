@@ -55,7 +55,23 @@ object ImageQuant {
         val pngCompression: PngCompression = PngCompression.BEST,
         val pngFilter: PngFilter = PngFilter.DEFAULT,
         val adaptiveFilter: Boolean = true,
-    )
+    ) {
+        constructor(
+            @IntRange(from = 0, to = 100)
+            quality: Int,
+            @IntRange(from = 1, to = 10)
+            speed: Int,
+            @IntRange(from = 2)
+            maxColors: Int = 1024,
+            @FloatRange(from = 0.0, to = 1.0)
+            ditheringLevel: Float = 1f
+        ) : this(
+            maxColors = maxColors,
+            targetQuality = quality,
+            speed = speed,
+            ditheringLevel = ditheringLevel
+        )
+    }
 
     enum class PngBitDepth(val value: Int) {
         AUTO(0),
