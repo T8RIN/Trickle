@@ -45,6 +45,7 @@ import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
+import com.t8rin.trickle.ImageQuant
 import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.Oxipng
 import com.t8rin.trickle.Trickle
@@ -184,6 +185,75 @@ fun MainActivity.Jp2Hypothesis() {
                                             var baseBytes = ByteArray(0)
 
                                             val opts = listOf(false, true)
+
+                                            baseBytes = ByteArrayOutputStream().use {
+                                                scaled.compress(Bitmap.CompressFormat.PNG, 100, it)
+                                                it.toByteArray()
+                                            }
+
+                                            val qualities = listOf(100, 50, 10, 1)
+                                            val maxColorsList = listOf(1024)
+                                            val speeds = listOf(1, 5, 10)
+
+                                            var bestSize = Int.MAX_VALUE
+                                            var bestOptions: ImageQuant.Options? = null
+
+                                            qualities.forEach { quality ->
+                                                maxColorsList.forEach { maxColors ->
+                                                    speeds.forEach { speed ->
+                                                        val options = ImageQuant.Options(
+                                                            maxColors = maxColors,
+                                                            minQuality = 0,
+                                                            targetQuality = quality,
+                                                            speed = speed,
+                                                        )
+
+                                                        val bytes = runCatching {
+                                                            ImageQuant.compress(
+                                                                bitmap = scaled,
+                                                                options = options
+                                                            )
+                                                        }.getOrElse { throwable ->
+                                                            Log.e(
+                                                                "IMAGEQUANT",
+                                                                "FAILED options = $options",
+                                                                throwable
+                                                            )
+                                                            return@forEach
+                                                        }
+
+                                                        val size = bytes.size
+                                                        val ratio = size * 100f / baseBytes.size
+
+                                                        Log.d(
+                                                            "IMAGEQUANT",
+                                                            "options = $options, " +
+                                                                    "base = ${baseBytes.size / 1024f} KB, " +
+                                                                    "imagequant = ${size / 1024f} KB, " +
+                                                                    "diff = ${(size - baseBytes.size) / 1024f} KB, " +
+                                                                    "ratio = $ratio%"
+                                                        )
+
+                                                        if (size < bestSize) {
+                                                            bestSize = size
+                                                            bestOptions = options
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            Log.d(
+                                                "IMAGEQUANT_BEST",
+                                                """
+                                                BEST RESULT
+                                                
+                                                options = $bestOptions
+                                                base = ${baseBytes.size / 1024f} KB
+                                                best = ${bestSize / 1024f} KB
+                                                saved = ${(baseBytes.size - bestSize) / 1024f} KB
+                                                ratio = ${bestSize * 100f / baseBytes.size}%
+                                                """.trimIndent()
+                                            )
 
                                             repeat(7) { level ->
                                                 opts.forEach { stripAll ->

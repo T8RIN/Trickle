@@ -1,0 +1,21 @@
+[package]
+name = "imagequant_jni"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "imagequant_jni"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+imagequant = "4.4.1"
+jni = { version = "0.21", default-features = false }
+png = "0.17"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

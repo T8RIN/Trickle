@@ -3,5 +3,9 @@
 /src/main/rust/Cargo.lock
 /src/main/rust/target/
 /src/main/rust/.idea/
+/src/main/rust/oxipng_jni/Cargo.lock
+/src/main/rust/oxipng_jni/target/
 /src/main/rust/ntsc_jni/Cargo.lock
 /src/main/rust/ntsc_jni/target/
+/src/main/rust/imagequant_jni/Cargo.lock
+/src/main/rust/imagequant_jni/target/
