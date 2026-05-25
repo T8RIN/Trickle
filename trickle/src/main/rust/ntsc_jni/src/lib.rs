@@ -2,7 +2,7 @@
 unsafe extern "C" {}
 
 use jni::JNIEnv;
-use jni::objects::{JObject, JValue};
+use jni::objects::{JBooleanArray, JFloatArray, JIntArray, JObject, JValue};
 use jni::sys::{JNI_TRUE, jboolean, jfloat, jint, jobject};
 use ntsc_rs::settings::standard::{
     ChromaDemodulationFilter, ChromaLowpass, FbmNoiseSettings, FilterType,
@@ -23,6 +23,74 @@ struct AndroidBitmapInfo {
 }
 
 const ANDROID_BITMAP_FORMAT_RGBA_8888: i32 = 1;
+const INT_SETTINGS_LEN: usize = 18;
+const FLOAT_SETTINGS_LEN: usize = 31;
+const BOOLEAN_SETTINGS_LEN: usize = 13;
+
+const I_RANDOM_SEED: usize = 0;
+const I_USE_FIELD: usize = 1;
+const I_FILTER_TYPE: usize = 2;
+const I_INPUT_LUMA_FILTER: usize = 3;
+const I_CHROMA_LOWPASS_IN: usize = 4;
+const I_CHROMA_DEMODULATION: usize = 5;
+const I_VIDEO_SCANLINE_PHASE_SHIFT: usize = 6;
+const I_VIDEO_SCANLINE_PHASE_SHIFT_OFFSET: usize = 7;
+const I_HEAD_SWITCHING_HEIGHT: usize = 8;
+const I_HEAD_SWITCHING_OFFSET: usize = 9;
+const I_TRACKING_NOISE_HEIGHT: usize = 10;
+const I_COMPOSITE_NOISE_DETAIL: usize = 11;
+const I_LUMA_NOISE_DETAIL: usize = 12;
+const I_CHROMA_NOISE_DETAIL: usize = 13;
+const I_CHROMA_DELAY_VERTICAL: usize = 14;
+const I_VHS_TAPE_SPEED: usize = 15;
+const I_VHS_EDGE_WAVE_DETAIL: usize = 16;
+const I_CHROMA_LOWPASS_OUT: usize = 17;
+
+const F_LUMA_SMEAR: usize = 0;
+const F_COMPOSITE_SHARPENING: usize = 1;
+const F_HEAD_SWITCHING_HORIZONTAL_SHIFT: usize = 2;
+const F_HEAD_SWITCHING_MID_LINE_POSITION: usize = 3;
+const F_HEAD_SWITCHING_MID_LINE_JITTER: usize = 4;
+const F_TRACKING_NOISE_WAVE_INTENSITY: usize = 5;
+const F_TRACKING_NOISE_SNOW_INTENSITY: usize = 6;
+const F_TRACKING_NOISE_SNOW_ANISOTROPY: usize = 7;
+const F_TRACKING_NOISE_NOISE_INTENSITY: usize = 8;
+const F_COMPOSITE_NOISE_FREQUENCY: usize = 9;
+const F_COMPOSITE_NOISE_INTENSITY: usize = 10;
+const F_RINGING_FREQUENCY: usize = 11;
+const F_RINGING_POWER: usize = 12;
+const F_RINGING_INTENSITY: usize = 13;
+const F_LUMA_NOISE_FREQUENCY: usize = 14;
+const F_LUMA_NOISE_INTENSITY: usize = 15;
+const F_CHROMA_NOISE_FREQUENCY: usize = 16;
+const F_CHROMA_NOISE_INTENSITY: usize = 17;
+const F_SNOW_INTENSITY: usize = 18;
+const F_SNOW_ANISOTROPY: usize = 19;
+const F_CHROMA_PHASE_NOISE_INTENSITY: usize = 20;
+const F_CHROMA_PHASE_ERROR: usize = 21;
+const F_CHROMA_DELAY_HORIZONTAL: usize = 22;
+const F_VHS_CHROMA_LOSS: usize = 23;
+const F_VHS_SHARPEN_INTENSITY: usize = 24;
+const F_VHS_SHARPEN_FREQUENCY: usize = 25;
+const F_VHS_EDGE_WAVE_INTENSITY: usize = 26;
+const F_VHS_EDGE_WAVE_SPEED: usize = 27;
+const F_VHS_EDGE_WAVE_FREQUENCY: usize = 28;
+const F_SCALE_HORIZONTAL: usize = 29;
+const F_SCALE_VERTICAL: usize = 30;
+
+const B_HEAD_SWITCHING_ENABLED: usize = 0;
+const B_HEAD_SWITCHING_MID_LINE_ENABLED: usize = 1;
+const B_TRACKING_NOISE_ENABLED: usize = 2;
+const B_COMPOSITE_NOISE_ENABLED: usize = 3;
+const B_RINGING_ENABLED: usize = 4;
+const B_LUMA_NOISE_ENABLED: usize = 5;
+const B_CHROMA_NOISE_ENABLED: usize = 6;
+const B_VHS_ENABLED: usize = 7;
+const B_VHS_SHARPEN_ENABLED: usize = 8;
+const B_VHS_EDGE_WAVE_ENABLED: usize = 9;
+const B_CHROMA_VERT_BLEND: usize = 10;
+const B_SCALE_ENABLED: usize = 11;
+const B_SCALE_WITH_VIDEO_SIZE: usize = 12;
 
 unsafe extern "C" {
     fn AndroidBitmap_getInfo(
@@ -61,6 +129,57 @@ fn finite(value: jfloat, default: f32) -> f32 {
 
 fn positive_scale(value: jfloat) -> f32 {
     finite(value, 1.0).max(0.001)
+}
+
+fn read_int_settings(
+    env: &mut JNIEnv,
+    array: &JIntArray,
+    expected_len: usize,
+) -> Result<Vec<jint>, String> {
+    let length = env.get_array_length(array).map_err(|e| e.to_string())? as usize;
+    if length != expected_len {
+        return Err(format!(
+            "Invalid NTSC int settings length: expected {expected_len}, got {length}"
+        ));
+    }
+    let mut values = vec![0; expected_len];
+    env.get_int_array_region(array, 0, &mut values)
+        .map_err(|e| e.to_string())?;
+    Ok(values)
+}
+
+fn read_float_settings(
+    env: &mut JNIEnv,
+    array: &JFloatArray,
+    expected_len: usize,
+) -> Result<Vec<jfloat>, String> {
+    let length = env.get_array_length(array).map_err(|e| e.to_string())? as usize;
+    if length != expected_len {
+        return Err(format!(
+            "Invalid NTSC float settings length: expected {expected_len}, got {length}"
+        ));
+    }
+    let mut values = vec![0.0; expected_len];
+    env.get_float_array_region(array, 0, &mut values)
+        .map_err(|e| e.to_string())?;
+    Ok(values)
+}
+
+fn read_boolean_settings(
+    env: &mut JNIEnv,
+    array: &JBooleanArray,
+    expected_len: usize,
+) -> Result<Vec<jboolean>, String> {
+    let length = env.get_array_length(array).map_err(|e| e.to_string())? as usize;
+    if length != expected_len {
+        return Err(format!(
+            "Invalid NTSC boolean settings length: expected {expected_len}, got {length}"
+        ));
+    }
+    let mut values = vec![0; expected_len];
+    env.get_boolean_array_region(array, 0, &mut values)
+        .map_err(|e| e.to_string())?;
+    Ok(values)
 }
 
 fn enum_use_field(value: jint) -> UseField {
@@ -283,68 +402,9 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
     frame: jint,
     scale_factor_x: jfloat,
     scale_factor_y: jfloat,
-    random_seed: jint,
-    use_field: jint,
-    filter_type: jint,
-    input_luma_filter: jint,
-    chroma_lowpass_in: jint,
-    chroma_demodulation: jint,
-    luma_smear: jfloat,
-    composite_sharpening: jfloat,
-    video_scanline_phase_shift: jint,
-    video_scanline_phase_shift_offset: jint,
-    head_switching_enabled: jboolean,
-    head_switching_height: jint,
-    head_switching_offset: jint,
-    head_switching_horizontal_shift: jfloat,
-    head_switching_mid_line_enabled: jboolean,
-    head_switching_mid_line_position: jfloat,
-    head_switching_mid_line_jitter: jfloat,
-    tracking_noise_enabled: jboolean,
-    tracking_noise_height: jint,
-    tracking_noise_wave_intensity: jfloat,
-    tracking_noise_snow_intensity: jfloat,
-    tracking_noise_snow_anisotropy: jfloat,
-    tracking_noise_noise_intensity: jfloat,
-    composite_noise_enabled: jboolean,
-    composite_noise_frequency: jfloat,
-    composite_noise_intensity: jfloat,
-    composite_noise_detail: jint,
-    ringing_enabled: jboolean,
-    ringing_frequency: jfloat,
-    ringing_power: jfloat,
-    ringing_intensity: jfloat,
-    luma_noise_enabled: jboolean,
-    luma_noise_frequency: jfloat,
-    luma_noise_intensity: jfloat,
-    luma_noise_detail: jint,
-    chroma_noise_enabled: jboolean,
-    chroma_noise_frequency: jfloat,
-    chroma_noise_intensity: jfloat,
-    chroma_noise_detail: jint,
-    snow_intensity: jfloat,
-    snow_anisotropy: jfloat,
-    chroma_phase_noise_intensity: jfloat,
-    chroma_phase_error: jfloat,
-    chroma_delay_horizontal: jfloat,
-    chroma_delay_vertical: jint,
-    vhs_enabled: jboolean,
-    vhs_tape_speed: jint,
-    vhs_chroma_loss: jfloat,
-    vhs_sharpen_enabled: jboolean,
-    vhs_sharpen_intensity: jfloat,
-    vhs_sharpen_frequency: jfloat,
-    vhs_edge_wave_enabled: jboolean,
-    vhs_edge_wave_intensity: jfloat,
-    vhs_edge_wave_speed: jfloat,
-    vhs_edge_wave_frequency: jfloat,
-    vhs_edge_wave_detail: jint,
-    chroma_vert_blend: jboolean,
-    chroma_lowpass_out: jint,
-    scale_enabled: jboolean,
-    scale_horizontal: jfloat,
-    scale_vertical: jfloat,
-    scale_with_video_size: jboolean,
+    int_settings: JIntArray,
+    float_settings: JFloatArray,
+    boolean_settings: JBooleanArray,
 ) -> jobject {
     let mut buffer = match unsafe { read_bitmap(&mut env, &bitmap) } {
         Ok(buffer) => buffer,
@@ -353,27 +413,50 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
             return std::ptr::null_mut();
         }
     };
+    let int_settings = match read_int_settings(&mut env, &int_settings, INT_SETTINGS_LEN) {
+        Ok(settings) => settings,
+        Err(error) => {
+            throw(&mut env, &error);
+            return std::ptr::null_mut();
+        }
+    };
+    let float_settings = match read_float_settings(&mut env, &float_settings, FLOAT_SETTINGS_LEN) {
+        Ok(settings) => settings,
+        Err(error) => {
+            throw(&mut env, &error);
+            return std::ptr::null_mut();
+        }
+    };
+    let boolean_settings =
+        match read_boolean_settings(&mut env, &boolean_settings, BOOLEAN_SETTINGS_LEN) {
+            Ok(settings) => settings,
+            Err(error) => {
+                throw(&mut env, &error);
+                return std::ptr::null_mut();
+            }
+        };
 
     let mut effect = NtscEffect::default();
-    effect.random_seed = random_seed;
-    effect.use_field = enum_use_field(use_field);
-    effect.filter_type = enum_filter_type(filter_type);
-    effect.input_luma_filter = enum_luma_lowpass(input_luma_filter);
-    effect.chroma_lowpass_in = enum_chroma_lowpass(chroma_lowpass_in);
-    effect.chroma_demodulation = enum_chroma_demodulation(chroma_demodulation);
-    effect.luma_smear = finite(luma_smear, 0.5);
-    effect.composite_sharpening = finite(composite_sharpening, 1.0);
-    effect.video_scanline_phase_shift = enum_phase_shift(video_scanline_phase_shift);
-    effect.video_scanline_phase_shift_offset = video_scanline_phase_shift_offset;
-    effect.head_switching = if jbool(head_switching_enabled) {
+    effect.random_seed = int_settings[I_RANDOM_SEED];
+    effect.use_field = enum_use_field(int_settings[I_USE_FIELD]);
+    effect.filter_type = enum_filter_type(int_settings[I_FILTER_TYPE]);
+    effect.input_luma_filter = enum_luma_lowpass(int_settings[I_INPUT_LUMA_FILTER]);
+    effect.chroma_lowpass_in = enum_chroma_lowpass(int_settings[I_CHROMA_LOWPASS_IN]);
+    effect.chroma_demodulation = enum_chroma_demodulation(int_settings[I_CHROMA_DEMODULATION]);
+    effect.luma_smear = finite(float_settings[F_LUMA_SMEAR], 0.5);
+    effect.composite_sharpening = finite(float_settings[F_COMPOSITE_SHARPENING], 1.0);
+    effect.video_scanline_phase_shift =
+        enum_phase_shift(int_settings[I_VIDEO_SCANLINE_PHASE_SHIFT]);
+    effect.video_scanline_phase_shift_offset = int_settings[I_VIDEO_SCANLINE_PHASE_SHIFT_OFFSET];
+    effect.head_switching = if jbool(boolean_settings[B_HEAD_SWITCHING_ENABLED]) {
         Some(HeadSwitchingSettings {
-            height: head_switching_height,
-            offset: head_switching_offset,
-            horiz_shift: finite(head_switching_horizontal_shift, 72.0),
-            mid_line: if jbool(head_switching_mid_line_enabled) {
+            height: int_settings[I_HEAD_SWITCHING_HEIGHT],
+            offset: int_settings[I_HEAD_SWITCHING_OFFSET],
+            horiz_shift: finite(float_settings[F_HEAD_SWITCHING_HORIZONTAL_SHIFT], 72.0),
+            mid_line: if jbool(boolean_settings[B_HEAD_SWITCHING_MID_LINE_ENABLED]) {
                 Some(HeadSwitchingMidLineSettings {
-                    position: finite(head_switching_mid_line_position, 0.95),
-                    jitter: finite(head_switching_mid_line_jitter, 0.03),
+                    position: finite(float_settings[F_HEAD_SWITCHING_MID_LINE_POSITION], 0.95),
+                    jitter: finite(float_settings[F_HEAD_SWITCHING_MID_LINE_JITTER], 0.03),
                 })
             } else {
                 None
@@ -382,77 +465,79 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
     } else {
         None
     };
-    effect.tracking_noise = if jbool(tracking_noise_enabled) {
+    effect.tracking_noise = if jbool(boolean_settings[B_TRACKING_NOISE_ENABLED]) {
         Some(TrackingNoiseSettings {
-            height: tracking_noise_height,
-            wave_intensity: finite(tracking_noise_wave_intensity, 15.0),
-            snow_intensity: finite(tracking_noise_snow_intensity, 0.025).max(0.0),
-            snow_anisotropy: finite(tracking_noise_snow_anisotropy, 0.25),
-            noise_intensity: finite(tracking_noise_noise_intensity, 0.25).max(0.0),
+            height: int_settings[I_TRACKING_NOISE_HEIGHT],
+            wave_intensity: finite(float_settings[F_TRACKING_NOISE_WAVE_INTENSITY], 15.0),
+            snow_intensity: finite(float_settings[F_TRACKING_NOISE_SNOW_INTENSITY], 0.025).max(0.0),
+            snow_anisotropy: finite(float_settings[F_TRACKING_NOISE_SNOW_ANISOTROPY], 0.25),
+            noise_intensity: finite(float_settings[F_TRACKING_NOISE_NOISE_INTENSITY], 0.25)
+                .max(0.0),
         })
     } else {
         None
     };
-    effect.composite_noise = if jbool(composite_noise_enabled) {
+    effect.composite_noise = if jbool(boolean_settings[B_COMPOSITE_NOISE_ENABLED]) {
         Some(FbmNoiseSettings {
-            frequency: finite(composite_noise_frequency, 0.5),
-            intensity: finite(composite_noise_intensity, 0.05),
-            detail: composite_noise_detail,
+            frequency: finite(float_settings[F_COMPOSITE_NOISE_FREQUENCY], 0.5),
+            intensity: finite(float_settings[F_COMPOSITE_NOISE_INTENSITY], 0.05),
+            detail: int_settings[I_COMPOSITE_NOISE_DETAIL],
         })
     } else {
         None
     };
-    effect.ringing = if jbool(ringing_enabled) {
+    effect.ringing = if jbool(boolean_settings[B_RINGING_ENABLED]) {
         Some(RingingSettings {
-            frequency: finite(ringing_frequency, 0.45),
-            power: finite(ringing_power, 4.0),
-            intensity: finite(ringing_intensity, 4.0),
+            frequency: finite(float_settings[F_RINGING_FREQUENCY], 0.45),
+            power: finite(float_settings[F_RINGING_POWER], 4.0),
+            intensity: finite(float_settings[F_RINGING_INTENSITY], 4.0),
         })
     } else {
         None
     };
-    effect.luma_noise = if jbool(luma_noise_enabled) {
+    effect.luma_noise = if jbool(boolean_settings[B_LUMA_NOISE_ENABLED]) {
         Some(FbmNoiseSettings {
-            frequency: finite(luma_noise_frequency, 0.5),
-            intensity: finite(luma_noise_intensity, 0.01),
-            detail: luma_noise_detail,
+            frequency: finite(float_settings[F_LUMA_NOISE_FREQUENCY], 0.5),
+            intensity: finite(float_settings[F_LUMA_NOISE_INTENSITY], 0.01),
+            detail: int_settings[I_LUMA_NOISE_DETAIL],
         })
     } else {
         None
     };
-    effect.chroma_noise = if jbool(chroma_noise_enabled) {
+    effect.chroma_noise = if jbool(boolean_settings[B_CHROMA_NOISE_ENABLED]) {
         Some(FbmNoiseSettings {
-            frequency: finite(chroma_noise_frequency, 0.05),
-            intensity: finite(chroma_noise_intensity, 0.1),
-            detail: chroma_noise_detail,
+            frequency: finite(float_settings[F_CHROMA_NOISE_FREQUENCY], 0.05),
+            intensity: finite(float_settings[F_CHROMA_NOISE_INTENSITY], 0.1),
+            detail: int_settings[I_CHROMA_NOISE_DETAIL],
         })
     } else {
         None
     };
-    effect.snow_intensity = finite(snow_intensity, 0.00025).max(0.0);
-    effect.snow_anisotropy = finite(snow_anisotropy, 0.5);
-    effect.chroma_phase_noise_intensity = finite(chroma_phase_noise_intensity, 0.001).max(0.0);
-    effect.chroma_phase_error = finite(chroma_phase_error, 0.0);
-    effect.chroma_delay_horizontal = finite(chroma_delay_horizontal, 0.0);
-    effect.chroma_delay_vertical = chroma_delay_vertical;
-    effect.vhs_settings = if jbool(vhs_enabled) {
+    effect.snow_intensity = finite(float_settings[F_SNOW_INTENSITY], 0.00025).max(0.0);
+    effect.snow_anisotropy = finite(float_settings[F_SNOW_ANISOTROPY], 0.5);
+    effect.chroma_phase_noise_intensity =
+        finite(float_settings[F_CHROMA_PHASE_NOISE_INTENSITY], 0.001).max(0.0);
+    effect.chroma_phase_error = finite(float_settings[F_CHROMA_PHASE_ERROR], 0.0);
+    effect.chroma_delay_horizontal = finite(float_settings[F_CHROMA_DELAY_HORIZONTAL], 0.0);
+    effect.chroma_delay_vertical = int_settings[I_CHROMA_DELAY_VERTICAL];
+    effect.vhs_settings = if jbool(boolean_settings[B_VHS_ENABLED]) {
         Some(VHSSettings {
-            tape_speed: enum_vhs_tape_speed(vhs_tape_speed),
-            chroma_loss: finite(vhs_chroma_loss, 0.000025).clamp(0.0, 1.0),
-            sharpen: if jbool(vhs_sharpen_enabled) {
+            tape_speed: enum_vhs_tape_speed(int_settings[I_VHS_TAPE_SPEED]),
+            chroma_loss: finite(float_settings[F_VHS_CHROMA_LOSS], 0.000025).clamp(0.0, 1.0),
+            sharpen: if jbool(boolean_settings[B_VHS_SHARPEN_ENABLED]) {
                 Some(VHSSharpenSettings {
-                    intensity: finite(vhs_sharpen_intensity, 0.25),
-                    frequency: finite(vhs_sharpen_frequency, 1.0),
+                    intensity: finite(float_settings[F_VHS_SHARPEN_INTENSITY], 0.25),
+                    frequency: finite(float_settings[F_VHS_SHARPEN_FREQUENCY], 1.0),
                 })
             } else {
                 None
             },
-            edge_wave: if jbool(vhs_edge_wave_enabled) {
+            edge_wave: if jbool(boolean_settings[B_VHS_EDGE_WAVE_ENABLED]) {
                 Some(VHSEdgeWaveSettings {
-                    intensity: finite(vhs_edge_wave_intensity, 0.5),
-                    speed: finite(vhs_edge_wave_speed, 4.0),
-                    frequency: finite(vhs_edge_wave_frequency, 0.05),
-                    detail: vhs_edge_wave_detail,
+                    intensity: finite(float_settings[F_VHS_EDGE_WAVE_INTENSITY], 0.5),
+                    speed: finite(float_settings[F_VHS_EDGE_WAVE_SPEED], 4.0),
+                    frequency: finite(float_settings[F_VHS_EDGE_WAVE_FREQUENCY], 0.05),
+                    detail: int_settings[I_VHS_EDGE_WAVE_DETAIL],
                 })
             } else {
                 None
@@ -461,13 +546,13 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
     } else {
         None
     };
-    effect.chroma_vert_blend = jbool(chroma_vert_blend);
-    effect.chroma_lowpass_out = enum_chroma_lowpass(chroma_lowpass_out);
-    effect.scale = if jbool(scale_enabled) {
+    effect.chroma_vert_blend = jbool(boolean_settings[B_CHROMA_VERT_BLEND]);
+    effect.chroma_lowpass_out = enum_chroma_lowpass(int_settings[I_CHROMA_LOWPASS_OUT]);
+    effect.scale = if jbool(boolean_settings[B_SCALE_ENABLED]) {
         Some(ScaleSettings {
-            horizontal_scale: positive_scale(scale_horizontal),
-            vertical_scale: positive_scale(scale_vertical),
-            scale_with_video_size: jbool(scale_with_video_size),
+            horizontal_scale: positive_scale(float_settings[F_SCALE_HORIZONTAL]),
+            vertical_scale: positive_scale(float_settings[F_SCALE_VERTICAL]),
+            scale_with_video_size: jbool(boolean_settings[B_SCALE_WITH_VIDEO_SIZE]),
         })
     } else {
         None
