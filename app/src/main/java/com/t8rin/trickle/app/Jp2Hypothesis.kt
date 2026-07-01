@@ -1,7 +1,6 @@
 package com.t8rin.trickle.app
 
 import android.graphics.Bitmap
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,29 +29,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.scale
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
-import com.t8rin.trickle.ImageQuant
 import com.t8rin.trickle.NtscSettings
-import com.t8rin.trickle.Oxipng
 import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
-import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -111,42 +108,42 @@ fun MainActivity.Jp2Hypothesis() {
 
     Scaffold(
         topBar = {
-            Text("NTSC")
-            AsyncImage(
-                model = remember(
-                    source,
-                    ntscSettings,
-                    ntscFrame,
-                    ntscScaleFactorX,
-                    ntscScaleFactorY
-                ) {
-                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
-                        .data(source)
-                        .transformations(
-                            GenericTransformation(
-                                key = listOf(
-                                    ntscSettings,
-                                    ntscFrame,
-                                    ntscScaleFactorX,
-                                    ntscScaleFactorY
-                                )
-                            ) { bmp ->
-                                Trickle.ntsc(
-                                    src = bmp,
-                                    frame = ntscFrame,
-                                    scaleFactorX = ntscScaleFactorX,
-                                    scaleFactorY = ntscScaleFactorY,
-                                    settings = ntscSettings
-                                )
-                            }
-                        )
-                        .build()
-                },
-                imageLoader = imageLoader,
-                modifier = Modifier.height(280.dp),
-                contentDescription = null,
-                contentScale = ContentScale.Fit
-            )
+//            Text("NTSC")
+//            AsyncImage(
+//                model = remember(
+//                    source,
+//                    ntscSettings,
+//                    ntscFrame,
+//                    ntscScaleFactorX,
+//                    ntscScaleFactorY
+//                ) {
+//                    ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+//                        .data(source)
+//                        .transformations(
+//                            GenericTransformation(
+//                                key = listOf(
+//                                    ntscSettings,
+//                                    ntscFrame,
+//                                    ntscScaleFactorX,
+//                                    ntscScaleFactorY
+//                                )
+//                            ) { bmp ->
+//                                Trickle.ntsc(
+//                                    src = bmp,
+//                                    frame = ntscFrame,
+//                                    scaleFactorX = ntscScaleFactorX,
+//                                    scaleFactorY = ntscScaleFactorY,
+//                                    settings = ntscSettings
+//                                )
+//                            }
+//                        )
+//                        .build()
+//                },
+//                imageLoader = imageLoader,
+//                modifier = Modifier.height(280.dp),
+//                contentDescription = null,
+//                contentScale = ContentScale.Fit
+//            )
         }
     ) { contentPadding ->
         Column(
@@ -179,119 +176,10 @@ fun MainActivity.Jp2Hypothesis() {
                                         override suspend fun transform(
                                             input: Bitmap,
                                             size: Size
-                                        ): Bitmap {
-                                            val scaled = input.scale(500, 500)
-                                            var bytes = ByteArray(0)
-                                            var baseBytes = ByteArray(0)
-
-                                            val opts = listOf(false, true)
-
-                                            baseBytes = ByteArrayOutputStream().use {
-                                                scaled.compress(Bitmap.CompressFormat.PNG, 100, it)
-                                                it.toByteArray()
-                                            }
-
-                                            val qualities = listOf(100, 50, 10, 1)
-                                            val maxColorsList = listOf(1024)
-                                            val speeds = listOf(1, 5, 10)
-
-                                            var bestSize = Int.MAX_VALUE
-                                            var bestOptions: ImageQuant.Options? = null
-
-                                            qualities.forEach { quality ->
-                                                maxColorsList.forEach { maxColors ->
-                                                    speeds.forEach { speed ->
-                                                        val options = ImageQuant.Options(
-                                                            maxColors = maxColors,
-                                                            minQuality = 0,
-                                                            targetQuality = quality,
-                                                            speed = speed,
-                                                        )
-
-                                                        val bytes = runCatching {
-                                                            ImageQuant.compress(
-                                                                bitmap = scaled,
-                                                                options = options
-                                                            )
-                                                        }.getOrElse { throwable ->
-                                                            Log.e(
-                                                                "IMAGEQUANT",
-                                                                "FAILED options = $options",
-                                                                throwable
-                                                            )
-                                                            return@forEach
-                                                        }
-
-                                                        val size = bytes.size
-                                                        val ratio = size * 100f / baseBytes.size
-
-                                                        Log.d(
-                                                            "IMAGEQUANT",
-                                                            "options = $options, " +
-                                                                    "base = ${baseBytes.size / 1024f} KB, " +
-                                                                    "imagequant = ${size / 1024f} KB, " +
-                                                                    "diff = ${(size - baseBytes.size) / 1024f} KB, " +
-                                                                    "ratio = $ratio%"
-                                                        )
-
-                                                        if (size < bestSize) {
-                                                            bestSize = size
-                                                            bestOptions = options
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            Log.d(
-                                                "IMAGEQUANT_BEST",
-                                                """
-                                                BEST RESULT
-                                                
-                                                options = $bestOptions
-                                                base = ${baseBytes.size / 1024f} KB
-                                                best = ${bestSize / 1024f} KB
-                                                saved = ${(baseBytes.size - bestSize) / 1024f} KB
-                                                ratio = ${bestSize * 100f / baseBytes.size}%
-                                                """.trimIndent()
-                                            )
-
-                                            repeat(7) { level ->
-                                                opts.forEach { stripAll ->
-                                                    opts.forEach { useZopfli ->
-                                                        val options = Oxipng.SimpleOptions(
-                                                            level = level,
-                                                            stripAll = stripAll,
-                                                            useZopfli = useZopfli
-                                                        )
-
-                                                        bytes = Oxipng.optimize(
-                                                            bitmap = scaled,
-                                                            options = options
-                                                        )
-                                                        baseBytes =
-                                                            ByteArrayOutputStream().use {
-                                                                scaled.compress(
-                                                                    Bitmap.CompressFormat.PNG,
-                                                                    100,
-                                                                    it
-                                                                )
-                                                                it.toByteArray()
-                                                            }
-
-                                                        Log.d(
-                                                            "OXIPNG",
-                                                            "options = $options, comparison base = ${baseBytes.size / 1024f} KB, oxi = ${bytes.size / 1024f} KB, diff = ${(bytes.size - baseBytes.size) / 1024f} KB"
-                                                        )
-                                                    }
-                                                }
-                                            }
-
-                                            return imageLoader.execute(
-                                                ImageRequest.Builder(this@Jp2Hypothesis)
-                                                    .data(bytes)
-                                                    .build()
-                                            ).drawable?.toBitmap()!!
-                                        }
+                                        ): Bitmap = Trickle.drawColorBehind(
+                                            input,
+                                            Color.Red.copy(0.8f).toArgb()
+                                        )
                                     }
                                 )
                             )
@@ -302,7 +190,28 @@ fun MainActivity.Jp2Hypothesis() {
                     contentDescription = null
                 )
                 AsyncImage(
-                    model = target,
+                    model = remember(target, imageLoader) {
+                        ImageRequest.Builder(this@Jp2Hypothesis)
+                            .data(target)
+                            .allowHardware(false)
+                            .transformations(
+                                listOf(
+                                    object : Transformation {
+                                        override val cacheKey: String
+                                            get() = Random.nextInt().toString()
+
+                                        override suspend fun transform(
+                                            input: Bitmap,
+                                            size: Size
+                                        ): Bitmap = Trickle.drawColorAbove(
+                                            input,
+                                            Color.Red.copy(0.8f).toArgb()
+                                        )
+                                    }
+                                )
+                            )
+                            .build()
+                    },
                     imageLoader = imageLoader,
                     modifier = Modifier.weight(1f),
                     contentDescription = null
@@ -311,16 +220,16 @@ fun MainActivity.Jp2Hypothesis() {
             }
 
 
-            NtscControls(
-                frame = ntscFrame,
-                onFrameChange = { ntscFrame = it },
-                scaleFactorX = ntscScaleFactorX,
-                onScaleFactorXChange = { ntscScaleFactorX = it },
-                scaleFactorY = ntscScaleFactorY,
-                onScaleFactorYChange = { ntscScaleFactorY = it },
-                settings = ntscSettings,
-                onSettingsChange = { ntscSettings = it }
-            )
+//            NtscControls(
+//                frame = ntscFrame,
+//                onFrameChange = { ntscFrame = it },
+//                scaleFactorX = ntscScaleFactorX,
+//                onScaleFactorXChange = { ntscScaleFactorX = it },
+//                scaleFactorY = ntscScaleFactorY,
+//                onScaleFactorYChange = { ntscScaleFactorY = it },
+//                settings = ntscSettings,
+//                onSettingsChange = { ntscSettings = it }
+//            )
 
             Row(
                 modifier = Modifier.height(360.dp)

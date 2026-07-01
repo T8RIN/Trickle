@@ -221,12 +221,54 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_cropToContentImpl(
 
     return newBitmap;
 }
+
+static inline void clearTransparentRgb(void *pixels, int width, int height, int stride) {
+    for (int y = 0; y < height; y++) {
+        auto *row = reinterpret_cast<uint32_t *>(
+                reinterpret_cast<uint8_t *>(pixels) + y * stride
+        );
+
+        for (int x = 0; x < width; x++) {
+            if ((row[x] & 0xFF000000u) == 0u) {
+                row[x] = 0x00000000u;
+            }
+        }
+    }
+}
+
+static inline void copyBitmapPixels(
+        void *dst,
+        int dstStride,
+        const void *src,
+        int srcStride,
+        int width,
+        int height
+) {
+    const size_t rowBytes = static_cast<size_t>(width) * 4u;
+
+    for (int y = 0; y < height; y++) {
+        memcpy(
+                reinterpret_cast<uint8_t *>(dst) + y * dstStride,
+                reinterpret_cast<const uint8_t *>(src) + y * srcStride,
+                rowBytes
+        );
+    }
+}
+
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorAboveImpl(JNIEnv *env, jobject thiz,
-                                                                       jobject input, jint color) {
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorAboveImpl(
+        JNIEnv *env,
+        jobject thiz,
+        jobject input,
+        jint color
+) {
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
+        return nullptr;
+    }
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
         return nullptr;
     }
 
@@ -245,37 +287,63 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorAboveImpl(JNIEnv *e
         return nullptr;
     }
 
+    AndroidBitmapInfo newInfo;
+    if (AndroidBitmap_getInfo(env, newImage, &newInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
     void *newPixels;
     if (AndroidBitmap_lockPixels(env, newImage, &newPixels) < 0) {
         AndroidBitmap_unlockPixels(env, input);
         return nullptr;
     }
 
-    memcpy(newPixels, pixels, stride * height);
+    int newStride = (int) newInfo.stride;
+
+    copyBitmapPixels(
+            newPixels,
+            newStride,
+            pixels,
+            stride,
+            width,
+            height
+    );
+
+    clearTransparentRgb(newPixels, width, height, newStride);
 
     cairo_surface_t *surface = cairo_image_surface_create_for_data(
             reinterpret_cast<unsigned char *>(newPixels),
             CAIRO_FORMAT_ARGB32,
             width,
             height,
-            stride
+            newStride
     );
 
     cairo_t *cr = cairo_create(surface);
 
-
     cairo_scale(cr, width, height);
-
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
 
     ARGB argb = ColorToARGB(color);
 
-    cairo_set_source_rgba(cr, argb.b / 255.0, argb.g / 255.0, argb.r / 255.0, argb.a / 255.0);
+    cairo_set_source_rgba(
+            cr,
+            argb.b / 255.0,
+            argb.g / 255.0,
+            argb.r / 255.0,
+            argb.a / 255.0
+    );
+
     cairo_rectangle(cr, 0.0, 0.0, 1.0, 1.0);
     cairo_fill(cr);
 
+    cairo_surface_flush(surface);
+
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
+
+    clearTransparentRgb(newPixels, width, height, newStride);
 
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, newImage);
@@ -285,10 +353,18 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorAboveImpl(JNIEnv *e
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorBehindImpl(JNIEnv *env, jobject thiz,
-                                                                        jobject input, jint color) {
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorBehindImpl(
+        JNIEnv *env,
+        jobject thiz,
+        jobject input,
+        jint color
+) {
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
+        return nullptr;
+    }
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
         return nullptr;
     }
 
@@ -307,24 +383,53 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorBehindImpl(JNIEnv *
         return nullptr;
     }
 
+    AndroidBitmapInfo newInfo;
+    if (AndroidBitmap_getInfo(env, newImage, &newInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
     void *newPixels;
     if (AndroidBitmap_lockPixels(env, newImage, &newPixels) < 0) {
         AndroidBitmap_unlockPixels(env, input);
         return nullptr;
     }
 
-    memset(newPixels, 0, stride * height);
+    int newStride = (int) newInfo.stride;
+
+    memset(newPixels, 0, static_cast<size_t>(newStride) * height);
+
+    auto *imagePixels = reinterpret_cast<unsigned char *>(
+            malloc(static_cast<size_t>(stride) * height)
+    );
+
+    if (imagePixels == nullptr) {
+        AndroidBitmap_unlockPixels(env, input);
+        AndroidBitmap_unlockPixels(env, newImage);
+        return nullptr;
+    }
+
+    copyBitmapPixels(
+            imagePixels,
+            stride,
+            pixels,
+            stride,
+            width,
+            height
+    );
+
+    clearTransparentRgb(imagePixels, width, height, stride);
 
     cairo_surface_t *surface = cairo_image_surface_create_for_data(
             reinterpret_cast<unsigned char *>(newPixels),
             CAIRO_FORMAT_ARGB32,
             width,
             height,
-            stride
+            newStride
     );
 
     cairo_surface_t *image = cairo_image_surface_create_for_data(
-            reinterpret_cast<unsigned char *>(pixels),
+            imagePixels,
             CAIRO_FORMAT_ARGB32,
             width,
             height,
@@ -334,17 +439,32 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_drawColorBehindImpl(JNIEnv *
     cairo_t *cr = cairo_create(surface);
 
     ARGB argb = ColorToARGB(color);
-    cairo_set_source_rgba(cr, argb.b / 255.0, argb.g / 255.0, argb.r / 255.0, argb.a / 255.0);
+
+    // background OVER nothing
+    cairo_set_source_rgba(
+            cr,
+            argb.b / 255.0,
+            argb.g / 255.0,
+            argb.r / 255.0,
+            argb.a / 255.0
+    );
+
     cairo_rectangle(cr, 0.0, 0.0, width, height);
     cairo_fill(cr);
 
+    // image OVER background
     cairo_set_source_surface(cr, image, 0.0, 0.0);
     cairo_paint(cr);
 
+    cairo_surface_flush(surface);
+
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
-
     cairo_surface_destroy(image);
+
+    free(imagePixels);
+
+    clearTransparentRgb(newPixels, width, height, newStride);
 
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, newImage);

@@ -1,22 +1,22 @@
 [versions]
 androidMinSdk = "23"
-androidTargetSdk = "36"
-androidCompileSdk = "36"
+androidTargetSdk = "37"
+androidCompileSdk = "37"
 
 jvmTarget = "17"
 
-libVersion = "1.8.1"
+libVersion = "1.8.2"
 
 detekt = "1.23.8"
 
-kotlin = "2.3.21"
+kotlin = "2.4.0"
 agp = "9.2.1"
 
-composeBom = "2026.05.01"
+composeBom = "2026.06.00"
 material3 = "1.4.0"
 coil = "2.7.0"
 
-androidxCore = "1.18.0"
+androidxCore = "1.19.0"
 desugaring = "2.1.5"
 activityCompose = "1.13.0"
 
