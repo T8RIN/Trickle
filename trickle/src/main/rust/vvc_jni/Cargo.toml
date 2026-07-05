@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-garnetash = { git = "https://github.com/awxkee/garnetash", rev = "442068af258e587da6c88c6f3cd7499c2be5e1e2" }
+garnetash = { git = "https://github.com/awxkee/garnetash", rev = "7492abe47e51f0c3ff280ae510e804990737e337" }
 jni = { version = "0.21", default-features = false }
 
 [profile.release]

@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.scale
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -180,7 +181,7 @@ fun MainActivity.Jp2Hypothesis() {
                                             size: Size
                                         ): Bitmap = VvcDecoder.decode(
                                             VvcEncoder.encode(
-                                                input,
+                                                input.scale(593, 791),
                                                 VvcEncoder.Options()
                                             ),
                                             VvcDecoder.Options()
