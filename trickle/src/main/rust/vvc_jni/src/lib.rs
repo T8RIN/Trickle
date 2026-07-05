@@ -9,8 +9,8 @@ use garnetash::{
     encode_rgba12_with_alpha,
 };
 use jni::JNIEnv;
-use jni::objects::{JByteArray, JClass, JObject};
-use jni::sys::{JNI_TRUE, jboolean, jbyteArray, jint};
+use jni::objects::{JByteArray, JClass, JObject, JValue};
+use jni::sys::{JNI_TRUE, jboolean, jbyteArray, jint, jobject};
 
 #[repr(C)]
 struct AndroidBitmapInfo {
@@ -23,7 +23,7 @@ struct AndroidBitmapInfo {
 
 const ANDROID_BITMAP_FORMAT_RGBA_8888: i32 = 1;
 const RAW_VVC: jint = 0;
-const DECODE_HEADER_SIZE: usize = 31;
+const SCALE_MODE_FILL: jint = 1;
 
 unsafe extern "C" {
     fn AndroidBitmap_getInfo(
@@ -222,55 +222,187 @@ fn decoded_rgba(image: &DecodedImage) -> Vec<u8> {
     rgba
 }
 
-fn orientation_exif(value: Orientation) -> u8 {
-    match value {
-        Orientation::Normal => 1,
-        Orientation::FlipH => 2,
-        Orientation::Rotate180 => 3,
-        Orientation::FlipV => 4,
-        Orientation::Transpose => 5,
-        Orientation::Rotate90 => 6,
-        Orientation::Transverse => 7,
-        Orientation::Rotate270 => 8,
+fn oriented_rgba(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    orientation: Orientation,
+) -> (Vec<u8>, u32, u32) {
+    if orientation == Orientation::Normal {
+        return (rgba, width, height);
     }
+
+    let swaps_dimensions = matches!(
+        orientation,
+        Orientation::Transpose
+            | Orientation::Rotate90
+            | Orientation::Transverse
+            | Orientation::Rotate270
+    );
+    let (output_width, output_height) = if swaps_dimensions {
+        (height, width)
+    } else {
+        (width, height)
+    };
+    let mut output = vec![0u8; rgba.len()];
+
+    for y in 0..output_height {
+        for x in 0..output_width {
+            let (source_x, source_y) = match orientation {
+                Orientation::Normal => (x, y),
+                Orientation::FlipH => (width - 1 - x, y),
+                Orientation::Rotate180 => (width - 1 - x, height - 1 - y),
+                Orientation::FlipV => (x, height - 1 - y),
+                Orientation::Transpose => (y, x),
+                Orientation::Rotate90 => (y, height - 1 - x),
+                Orientation::Transverse => (width - 1 - y, height - 1 - x),
+                Orientation::Rotate270 => (width - 1 - y, x),
+            };
+            let source = (source_y * width + source_x) as usize * 4;
+            let destination = (y * output_width + x) as usize * 4;
+            output[destination..destination + 4].copy_from_slice(&rgba[source..source + 4]);
+        }
+    }
+    (output, output_width, output_height)
 }
 
-fn decoded_packet(image: &DecodedImage) -> Vec<u8> {
-    let rgba = decoded_rgba(image);
-    let cicp = image.color.cicp;
-    let icc = image.color.icc.as_deref().unwrap_or_default();
-    let mut output = Vec::with_capacity(DECODE_HEADER_SIZE + icc.len() + rgba.len());
-    output.extend_from_slice(b"VVC1");
-    output.extend_from_slice(&image.width.to_le_bytes());
-    output.extend_from_slice(&image.height.to_le_bytes());
-    output.push(image.chroma.idc() as u8);
-    output.push(image.bit_depth.bits());
-    output.push(orientation_exif(image.orientation));
-    output.push(image.alpha.is_some() as u8);
-    output.extend_from_slice(
-        &cicp
-            .map(|c| c.primaries as u16)
-            .unwrap_or(u16::MAX)
-            .to_le_bytes(),
-    );
-    output.extend_from_slice(
-        &cicp
-            .map(|c| c.transfer as u16)
-            .unwrap_or(u16::MAX)
-            .to_le_bytes(),
-    );
-    output.extend_from_slice(
-        &cicp
-            .map(|c| c.matrix as u16)
-            .unwrap_or(u16::MAX)
-            .to_le_bytes(),
-    );
-    output.push(cicp.map(|c| c.full_range).unwrap_or(false) as u8);
-    output.extend_from_slice(&(icc.len() as u32).to_le_bytes());
-    output.extend_from_slice(&(rgba.len() as u32).to_le_bytes());
-    output.extend_from_slice(icc);
-    output.extend_from_slice(&rgba);
-    output
+fn bilinear_sample(rgba: &[u8], width: u32, height: u32, x: f32, y: f32) -> [u8; 4] {
+    let x = x.clamp(0.0, width.saturating_sub(1) as f32);
+    let y = y.clamp(0.0, height.saturating_sub(1) as f32);
+    let x0 = x.floor() as u32;
+    let y0 = y.floor() as u32;
+    let x1 = (x0 + 1).min(width - 1);
+    let y1 = (y0 + 1).min(height - 1);
+    let fx = x - x0 as f32;
+    let fy = y - y0 as f32;
+    let offsets = [
+        (y0 * width + x0) as usize * 4,
+        (y0 * width + x1) as usize * 4,
+        (y1 * width + x0) as usize * 4,
+        (y1 * width + x1) as usize * 4,
+    ];
+    let mut pixel = [0u8; 4];
+    for channel in 0..4 {
+        let top =
+            rgba[offsets[0] + channel] as f32 * (1.0 - fx) + rgba[offsets[1] + channel] as f32 * fx;
+        let bottom =
+            rgba[offsets[2] + channel] as f32 * (1.0 - fx) + rgba[offsets[3] + channel] as f32 * fx;
+        pixel[channel] = (top * (1.0 - fy) + bottom * fy).round() as u8;
+    }
+    pixel
+}
+
+fn sampled_rgba(
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+    requested_width: u32,
+    requested_height: u32,
+    scale_mode: jint,
+) -> (Vec<u8>, u32, u32) {
+    if requested_width == 0 || requested_height == 0 {
+        return (rgba, width, height);
+    }
+
+    let scale_x = requested_width as f32 / width as f32;
+    let scale_y = requested_height as f32 / height as f32;
+    let scale = if scale_mode == SCALE_MODE_FILL {
+        scale_x.max(scale_y)
+    } else {
+        scale_x.min(scale_y)
+    };
+    let (output_width, output_height, crop_x, crop_y) = if scale_mode == SCALE_MODE_FILL {
+        (
+            requested_width,
+            requested_height,
+            (width as f32 - requested_width as f32 / scale) * 0.5,
+            (height as f32 - requested_height as f32 / scale) * 0.5,
+        )
+    } else {
+        (
+            (width as f32 * scale).round().max(1.0) as u32,
+            (height as f32 * scale).round().max(1.0) as u32,
+            0.0,
+            0.0,
+        )
+    };
+
+    if output_width == width && output_height == height && crop_x == 0.0 && crop_y == 0.0 {
+        return (rgba, width, height);
+    }
+
+    let mut output = vec![0u8; output_width as usize * output_height as usize * 4];
+    for y in 0..output_height {
+        for x in 0..output_width {
+            let source_x = crop_x + (x as f32 + 0.5) / scale - 0.5;
+            let source_y = crop_y + (y as f32 + 0.5) / scale - 0.5;
+            let pixel = bilinear_sample(&rgba, width, height, source_x, source_y);
+            let destination = (y * output_width + x) as usize * 4;
+            output[destination..destination + 4].copy_from_slice(&pixel);
+        }
+    }
+    (output, output_width, output_height)
+}
+
+unsafe fn create_bitmap(
+    env: &mut JNIEnv,
+    rgba: &[u8],
+    width: u32,
+    height: u32,
+) -> Result<jobject, String> {
+    let config = env
+        .get_static_field(
+            "android/graphics/Bitmap$Config",
+            "ARGB_8888",
+            "Landroid/graphics/Bitmap$Config;",
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| e.to_string())?;
+    let bitmap = env
+        .call_static_method(
+            "android/graphics/Bitmap",
+            "createBitmap",
+            "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
+            &[
+                JValue::Int(width as jint),
+                JValue::Int(height as jint),
+                JValue::Object(&config),
+            ],
+        )
+        .and_then(|value| value.l())
+        .map_err(|e| e.to_string())?;
+
+    let raw_env = env.get_raw();
+    let raw_bitmap = bitmap.as_raw();
+    let mut info = AndroidBitmapInfo {
+        width: 0,
+        height: 0,
+        stride: 0,
+        format: 0,
+        flags: 0,
+    };
+    if unsafe { AndroidBitmap_getInfo(raw_env, raw_bitmap, &mut info) } < 0 {
+        return Err("AndroidBitmap_getInfo failed for decoded bitmap".to_string());
+    }
+
+    let mut pixels_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+    if unsafe { AndroidBitmap_lockPixels(raw_env, raw_bitmap, &mut pixels_ptr) } < 0 {
+        return Err("AndroidBitmap_lockPixels failed for decoded bitmap".to_string());
+    }
+    let row_bytes = width as usize * 4;
+    for y in 0..height as usize {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                rgba.as_ptr().add(y * row_bytes),
+                (pixels_ptr as *mut u8).add(y * info.stride as usize),
+                row_bytes,
+            );
+        }
+    }
+    if unsafe { AndroidBitmap_unlockPixels(raw_env, raw_bitmap) } < 0 {
+        return Err("AndroidBitmap_unlockPixels failed for decoded bitmap".to_string());
+    }
+    Ok(bitmap.into_raw())
 }
 
 fn to_java_bytes(env: &mut JNIEnv, bytes: &[u8]) -> Result<jbyteArray, String> {
@@ -369,8 +501,12 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcDecoder_decodeNative(
     _class: JClass,
     encoded: JByteArray,
     container: jint,
-) -> jbyteArray {
-    let result = (|| -> Result<Vec<u8>, String> {
+    scaled_width: jint,
+    scaled_height: jint,
+    scale_mode: jint,
+    apply_orientation: jboolean,
+) -> jobject {
+    let result = (|| -> Result<jobject, String> {
         let encoded = env
             .convert_byte_array(&encoded)
             .map_err(|e| e.to_string())?;
@@ -380,11 +516,25 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcDecoder_decodeNative(
             decode(&encoded)
         }
         .map_err(|e| format!("VVC decode failed: {e}"))?;
-        Ok(decoded_packet(&image))
+        let rgba = decoded_rgba(&image);
+        let (rgba, width, height) = if jbool(apply_orientation) {
+            oriented_rgba(rgba, image.width, image.height, image.orientation)
+        } else {
+            (rgba, image.width, image.height)
+        };
+        let (rgba, width, height) = sampled_rgba(
+            rgba,
+            width,
+            height,
+            scaled_width.max(0) as u32,
+            scaled_height.max(0) as u32,
+            scale_mode,
+        );
+        unsafe { create_bitmap(&mut env, &rgba, width, height) }
     })();
 
-    match result.and_then(|bytes| to_java_bytes(&mut env, &bytes)) {
-        Ok(array) => array,
+    match result {
+        Ok(bitmap) => bitmap,
         Err(error) => {
             throw(&mut env, &error);
             std::ptr::null_mut()

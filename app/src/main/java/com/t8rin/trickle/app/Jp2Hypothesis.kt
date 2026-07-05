@@ -184,7 +184,7 @@ fun MainActivity.Jp2Hypothesis() {
                                                 VvcEncoder.Options()
                                             ),
                                             VvcDecoder.Options()
-                                        ).bitmap
+                                        )
                                     }
                                 )
                             )

@@ -18,6 +18,11 @@ enum class VvcBitDepth(internal val value: Int) {
     TWELVE(12),
 }
 
+enum class VvcScaleMode(internal val value: Int) {
+    FIT(0),
+    FILL(1),
+}
+
 enum class VvcOrientation(internal val exifValue: Int) {
     NORMAL(1),
     FLIP_H(2),

@@ -76,7 +76,7 @@ object VvcEncoder {
         val cclm: Boolean = true,
         val deblock: Boolean = true,
         val container: VvcContainer = VvcContainer.HEIF,
-        val preserveAlpha: Boolean = false,
+        val preserveAlpha: Boolean = true,
         val cicp: VvcCicp? = VvcCicp.DEFAULT,
         val iccProfile: ByteArray? = null,
         val orientation: VvcOrientation = VvcOrientation.NORMAL,
