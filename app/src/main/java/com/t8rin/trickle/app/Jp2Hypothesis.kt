@@ -47,6 +47,8 @@ import coil.transform.Transformation
 import coil.util.DebugLogger
 import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.Trickle
+import com.t8rin.trickle.VvcDecoder
+import com.t8rin.trickle.VvcEncoder
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
@@ -176,10 +178,13 @@ fun MainActivity.Jp2Hypothesis() {
                                         override suspend fun transform(
                                             input: Bitmap,
                                             size: Size
-                                        ): Bitmap = Trickle.drawColorBehind(
-                                            input,
-                                            Color.Red.copy(0.8f).toArgb()
-                                        )
+                                        ): Bitmap = VvcDecoder.decode(
+                                            VvcEncoder.encode(
+                                                input,
+                                                VvcEncoder.Options()
+                                            ),
+                                            VvcDecoder.Options()
+                                        ).bitmap
                                     }
                                 )
                             )

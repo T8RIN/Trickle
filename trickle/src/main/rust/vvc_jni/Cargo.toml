@@ -1,0 +1,20 @@
+[package]
+name = "vvc_jni"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "vvc_jni"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+garnetash = { git = "https://github.com/awxkee/garnetash", rev = "442068af258e587da6c88c6f3cd7499c2be5e1e2" }
+jni = { version = "0.21", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

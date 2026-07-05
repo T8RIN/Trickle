@@ -5,14 +5,14 @@ androidCompileSdk = "37"
 
 jvmTarget = "17"
 
-libVersion = "1.8.2"
+libVersion = "1.8.3"
 
 detekt = "1.23.8"
 
 kotlin = "2.4.0"
 agp = "9.2.1"
 
-composeBom = "2026.06.00"
+composeBom = "2026.06.01"
 material3 = "1.4.0"
 coil = "2.7.0"
 
