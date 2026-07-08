@@ -396,6 +396,16 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         gamma = gamma
     ) ?: src
 
+    override fun autoWhiteBalance(
+        input: Bitmap,
+        strength: Float,
+        clipPercent: Float
+    ): Bitmap = autoWhiteBalanceImpl(
+        input = input.safe(),
+        strength = strength,
+        clipPercent = clipPercent
+    ) ?: input
+
     private external fun bloomImpl(
         input: Bitmap,
         threshold: Float,
@@ -404,6 +414,12 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         softKnee: Float,
         exposure: Float,
         gamma: Float
+    ): Bitmap?
+
+    private external fun autoWhiteBalanceImpl(
+        input: Bitmap,
+        strength: Float,
+        clipPercent: Float
     ): Bitmap?
 
     private external fun pixelMeltImpl(

@@ -12,6 +12,7 @@
 #include "GothamFilter.h"
 #include "ColorUtils.h"
 #include "BitmapUtils.h"
+#include "AutoWhiteBalanceFilter.h"
 #include "WarpEngine.cpp"
 
 extern "C"
@@ -443,4 +444,59 @@ Java_com_t8rin_trickle_WarpEngine_nativeDestroy(
         jlong handle
 ) {
     delete reinterpret_cast<WarpEngine*>(handle);
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_autoWhiteBalanceImpl(
+        JNIEnv *env,
+        jobject thiz,
+        jobject input,
+        jfloat strength,
+        jfloat clipPercent
+) {
+    AndroidBitmapInfo info;
+    void *pixels;
+    if (AndroidBitmap_getInfo(env, input, &info) < 0) {
+        return nullptr;
+    }
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, input, &pixels) < 0) {
+        return nullptr;
+    }
+
+    uint32_t width = info.width;
+    uint32_t height = info.height;
+    uint32_t stride = info.stride;
+
+    jobject resultBitmap = createBitmap(env, width, height);
+    if (resultBitmap == nullptr) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    AndroidBitmapInfo resultInfo;
+    void *resultPixels;
+    if (AndroidBitmap_getInfo(env, resultBitmap, &resultInfo) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+    if (AndroidBitmap_lockPixels(env, resultBitmap, &resultPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    // Copy original pixels to result first
+    memcpy(resultPixels, pixels, stride * height);
+
+    AutoWhiteBalanceOptions options(strength, clipPercent);
+    AutoWhiteBalanceFilter filter(reinterpret_cast<int *>(resultPixels), width, height, options);
+    filter.procImage();
+
+    AndroidBitmap_unlockPixels(env, input);
+    AndroidBitmap_unlockPixels(env, resultBitmap);
+
+    return resultBitmap;
 }

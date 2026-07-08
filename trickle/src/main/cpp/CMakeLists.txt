@@ -35,6 +35,7 @@ add_library( # Sets the name of the library.
         ColorTranslator.cpp
         HueSaturationFilter.cpp
         GothamFilter.cpp
+        AutoWhiteBalanceFilter.cpp
         ColorTransfer.cpp
         ProcessingFilters.cpp
         ColorUtils.cpp

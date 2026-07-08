@@ -109,6 +109,13 @@ fun MainActivity.Jp2Hypothesis() {
         mutableStateOf(NtscSettings.DEFAULT)
     }
 
+    var awbStrength by remember {
+        mutableStateOf(1f)
+    }
+    var awbClipPercent by remember {
+        mutableStateOf(0.05f)
+    }
+
     Scaffold(
         topBar = {
 //            Text("NTSC")
@@ -353,6 +360,31 @@ fun MainActivity.Jp2Hypothesis() {
                 Slider(value = intensity, onValueChange = { intensity = it }, valueRange = 0f..1f)
             }
             Slider(value = colorValue, onValueChange = { colorValue = it }, valueRange = 0f..1f)
+
+            Section("Auto White Balance") {
+                FloatSlider("Strength", awbStrength, 0f..1f) { awbStrength = it }
+                FloatSlider("Clipping", awbClipPercent, 0f..2f) { awbClipPercent = it }
+                AsyncImage(
+                    model = remember(source, awbStrength, awbClipPercent) {
+                        ImageRequest.Builder(this@Jp2Hypothesis).allowHardware(false)
+                            .data(source)
+                            .transformations(
+                                GenericTransformation { bmp ->
+                                    Trickle.autoWhiteBalance(
+                                        input = bmp,
+                                        strength = awbStrength,
+                                        clipPercent = awbClipPercent
+                                    )
+                                }
+                            ).build()
+                    },
+                    imageLoader = imageLoader,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp),
+                    contentDescription = null
+                )
+            }
         }
     }
 }

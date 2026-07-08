@@ -153,4 +153,10 @@ interface EffectsPipeline {
         gamma: Float
     ): Bitmap
 
+    fun autoWhiteBalance(
+        input: Bitmap,
+        strength: Float = 1f,
+        clipPercent: Float = 0.05f
+    ): Bitmap
+
 }
