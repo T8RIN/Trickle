@@ -40,6 +40,7 @@ add_library( # Sets the name of the library.
         ProcessingFilters.cpp
         ColorUtils.cpp
         BitmapUtils.cpp
+        MagicResize.cpp
         Dithering.cpp
         ScanAlpha.cpp
         lowpoly/lowpoly-lib.cpp

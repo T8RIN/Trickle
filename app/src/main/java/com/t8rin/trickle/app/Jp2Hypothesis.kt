@@ -46,6 +46,7 @@ import coil.request.ImageRequest
 import coil.size.Size
 import coil.transform.Transformation
 import coil.util.DebugLogger
+import com.t8rin.trickle.MagicResizeType
 import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.Trickle
 import com.t8rin.trickle.VvcDecoder
@@ -186,12 +187,26 @@ fun MainActivity.Jp2Hypothesis() {
                                         override suspend fun transform(
                                             input: Bitmap,
                                             size: Size
-                                        ): Bitmap = VvcDecoder.decode(
-                                            VvcEncoder.encode(
-                                                input.scale(593, 791),
-                                                VvcEncoder.Options()
+                                        ): Bitmap = Trickle.magicResize(
+                                            input = Trickle.magicResize(
+                                                input = Trickle.magicResize(
+                                                    input = VvcDecoder.decode(
+                                                        encoded = VvcEncoder.encode(
+                                                            bitmap = input.scale(593, 791),
+                                                            options = VvcEncoder.Options()
+                                                        ),
+                                                        options = VvcDecoder.Options()
+                                                    ),
+                                                    width = 100,
+                                                    height = 500,
+                                                    type = MagicResizeType.MagicKernel
+                                                ),
+                                                width = 500, height = 1000,
+                                                type = MagicResizeType.MagicKernelSharp2013
                                             ),
-                                            VvcDecoder.Options()
+                                            width = 300,
+                                            height = 400,
+                                            type = MagicResizeType.MagicKernelSharp2021
                                         )
                                     }
                                 )
