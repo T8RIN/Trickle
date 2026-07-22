@@ -5,7 +5,7 @@ androidCompileSdk = "37"
 
 jvmTarget = "17"
 
-libVersion = "1.9.1"
+libVersion = "1.9.2"
 
 detekt = "1.23.8"
 
