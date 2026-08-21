@@ -22,6 +22,7 @@ android {
     namespace = "com.t8rin.trickle"
     defaultConfig {
         ndk.abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     externalNativeBuild {
         cmake {
@@ -51,6 +52,8 @@ android {
 
     dependencies {
         implementation(libs.androidxCore)
+        androidTestImplementation("androidx.test.ext:junit:1.3.0")
+        androidTestImplementation("androidx.test:runner:1.7.0")
         coreLibraryDesugaring(libs.desugaring)
     }
 

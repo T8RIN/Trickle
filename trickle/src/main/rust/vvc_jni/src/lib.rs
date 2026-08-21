@@ -1,3 +1,4 @@
+#[cfg(target_os = "android")]
 #[link(name = "jnigraphics")]
 unsafe extern "C" {}
 
@@ -75,6 +76,63 @@ fn optional_bytes(env: &mut JNIEnv, array: &JByteArray) -> Result<Option<Vec<u8>
     Ok((!bytes.is_empty()).then_some(bytes))
 }
 
+fn box_bounds(data: &[u8], offset: usize, limit: usize) -> Option<(usize, usize)> {
+    let size = u32::from_be_bytes(data.get(offset..offset + 4)?.try_into().ok()?) as usize;
+    let header_size = if size == 1 { 16 } else { 8 };
+    let size = if size == 0 {
+        limit.checked_sub(offset)?
+    } else if size == 1 {
+        usize::try_from(u64::from_be_bytes(
+            data.get(offset + 8..offset + 16)?.try_into().ok()?,
+        ))
+        .ok()?
+    } else {
+        size
+    };
+    let end = offset.checked_add(size)?;
+    (size >= header_size && end <= limit).then_some((offset + header_size, end))
+}
+
+fn find_box(data: &[u8], start: usize, end: usize, box_type: &[u8; 4]) -> Option<usize> {
+    let mut offset = start;
+    while offset + 8 <= end {
+        let (_, box_end) = box_bounds(data, offset, end)?;
+        if data.get(offset + 4..offset + 8)? == box_type {
+            return Some(offset);
+        }
+        offset = box_end;
+    }
+    None
+}
+
+fn normalize_heif_for_garnetash(mut heif: Vec<u8>) -> Vec<u8> {
+    let Some(meta) = find_box(&heif, 0, heif.len(), b"meta") else {
+        return heif;
+    };
+    let Some((meta_payload, meta_end)) = box_bounds(&heif, meta, heif.len()) else {
+        return heif;
+    };
+    let Some(iloc) = find_box(&heif, meta_payload + 4, meta_end, b"iloc") else {
+        return heif;
+    };
+    let Some((iloc_payload, _)) = box_bounds(&heif, iloc, meta_end) else {
+        return heif;
+    };
+    let version = heif.get(iloc_payload).copied().unwrap_or_default();
+    let sizes_index = iloc_payload + 5;
+    let sizes = heif.get(sizes_index).copied().unwrap_or_default();
+    let base_offset_size = sizes >> 4;
+    let index_size = sizes & 0x0f;
+
+    if version == 1 && index_size == 0 && base_offset_size <= 13 {
+        // Garnetash parses iloc v0. Treat v1's two-byte construction_method as
+        // part of the ignored base offset so the remaining entry layout aligns.
+        heif[iloc_payload] = 0;
+        heif[sizes_index] = (base_offset_size + 2) << 4;
+    }
+    heif
+}
+
 unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<(Vec<u8>, u32, u32), String> {
     let raw_env = env.get_raw();
     let raw_bitmap = bitmap.as_raw();
@@ -121,6 +179,10 @@ fn widen(samples: &[u8], max: u16) -> Vec<u16> {
         .collect()
 }
 
+fn has_transparency(rgba: &[u8]) -> bool {
+    rgba.chunks_exact(4).any(|pixel| pixel[3] != u8::MAX)
+}
+
 fn encode_bitmap(
     rgba: &[u8],
     width: u32,
@@ -129,12 +191,13 @@ fn encode_bitmap(
     container: jint,
     preserve_alpha: bool,
 ) -> Result<Vec<u8>, String> {
-    if container == RAW_VVC && preserve_alpha {
+    let encode_alpha = preserve_alpha && has_transparency(rgba);
+    if container == RAW_VVC && encode_alpha {
         return Err(
             "A raw VVC stream cannot preserve alpha; use HEIF or disable alpha".to_string(),
         );
     }
-    let result = match (cfg.bit_depth, container, preserve_alpha) {
+    let result = match (cfg.bit_depth, container, encode_alpha) {
         (BitDepth::Eight, RAW_VVC, _) => encode_rgba8_266(rgba, width, height, cfg),
         (BitDepth::Eight, _, false) => encode_rgba8(rgba, width, height, cfg),
         (BitDepth::Eight, _, true) => encode_rgba8_with_alpha(rgba, width, height, cfg),
@@ -513,7 +576,7 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcDecoder_decodeNative(
         let image = if container == RAW_VVC {
             decode_266(&encoded)
         } else {
-            decode(&encoded)
+            decode(&normalize_heif_for_garnetash(encoded))
         }
         .map_err(|e| format!("VVC decode failed: {e}"))?;
         let rgba = decoded_rgba(&image);
@@ -539,5 +602,136 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcDecoder_decodeNative(
             throw(&mut env, &error);
             std::ptr::null_mut()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rgba(width: u32, height: u32, alpha: u8) -> Vec<u8> {
+        (0..width * height)
+            .flat_map(|index| {
+                [
+                    (index % 251) as u8,
+                    (index * 3 % 251) as u8,
+                    (index * 7 % 251) as u8,
+                    alpha,
+                ]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn opaque_heif_does_not_create_alpha_item() {
+        let pixels = rgba(9, 11, u8::MAX);
+        let encoded = encode_bitmap(
+            &pixels,
+            9,
+            11,
+            &EncodeConfig::new().with_lossless(true),
+            1,
+            true,
+        )
+        .unwrap();
+        let decoded = decode(&encoded).unwrap();
+
+        assert_eq!((decoded.width, decoded.height), (9, 11));
+        assert!(decoded.alpha.is_none());
+    }
+
+    #[test]
+    fn transparent_heif_round_trips_alpha_at_odd_dimensions() {
+        let pixels = rgba(9, 11, 127);
+        let encoded = encode_bitmap(
+            &pixels,
+            9,
+            11,
+            &EncodeConfig::new().with_lossless(true),
+            1,
+            true,
+        )
+        .unwrap();
+        let decoded = decode(&encoded).unwrap();
+
+        assert_eq!((decoded.width, decoded.height), (9, 11));
+        assert_eq!(
+            decoded.alpha_plane().unwrap().data,
+            vec![127; 9 * 11].as_slice()
+        );
+    }
+
+    #[test]
+    fn image_toolbox_opaque_dimensions_round_trip() {
+        let pixels = vec![u8::MAX; 593 * 791 * 4];
+        let encoded = encode_bitmap(&pixels, 593, 791, &EncodeConfig::new(), 1, true).unwrap();
+        let decoded = decode(&encoded).unwrap();
+
+        assert_eq!((decoded.width, decoded.height), (593, 791));
+        assert!(decoded.alpha.is_none());
+    }
+
+    #[test]
+    fn opaque_raw_vvc_accepts_preserve_alpha() {
+        let pixels = rgba(8, 8, u8::MAX);
+        let encoded = encode_bitmap(
+            &pixels,
+            8,
+            8,
+            &EncodeConfig::new().with_lossless(true),
+            RAW_VVC,
+            true,
+        )
+        .unwrap();
+        let decoded = decode_266(&encoded).unwrap();
+
+        assert_eq!((decoded.width, decoded.height), (8, 8));
+    }
+
+    #[test]
+    fn sampled_fit_and_fill_have_expected_dimensions() {
+        let source = rgba(8, 4, u8::MAX);
+        let (_, fit_width, fit_height) = sampled_rgba(source.clone(), 8, 4, 4, 4, 0);
+        let (_, fill_width, fill_height) = sampled_rgba(source, 8, 4, 4, 4, SCALE_MODE_FILL);
+
+        assert_eq!((fit_width, fit_height), (4, 2));
+        assert_eq!((fill_width, fill_height), (4, 4));
+    }
+
+    #[test]
+    fn heif_iloc_version_one_is_normalized_for_decode() {
+        let pixels = rgba(8, 8, u8::MAX);
+        let encoded = encode_bitmap(
+            &pixels,
+            8,
+            8,
+            &EncodeConfig::new().with_lossless(true),
+            1,
+            false,
+        )
+        .unwrap();
+        let version_one = iloc_version_one(encoded);
+
+        assert!(decode(&version_one).is_err());
+        let decoded = decode(&normalize_heif_for_garnetash(version_one)).unwrap();
+        assert_eq!((decoded.width, decoded.height), (8, 8));
+    }
+
+    fn iloc_version_one(mut heif: Vec<u8>) -> Vec<u8> {
+        let meta = find_box(&heif, 0, heif.len(), b"meta").unwrap();
+        let (meta_payload, meta_end) = box_bounds(&heif, meta, heif.len()).unwrap();
+        let iloc = find_box(&heif, meta_payload + 4, meta_end, b"iloc").unwrap();
+        let (iloc_payload, _) = box_bounds(&heif, iloc, meta_end).unwrap();
+        let item = iloc_payload + 8;
+        let extent_offset = u32::from_be_bytes(heif[item + 6..item + 10].try_into().unwrap());
+
+        heif.splice(item + 2..item + 2, [0, 0]);
+        heif[iloc_payload] = 1;
+        let iloc_size = u32::from_be_bytes(heif[iloc..iloc + 4].try_into().unwrap()) + 2;
+        heif[iloc..iloc + 4].copy_from_slice(&iloc_size.to_be_bytes());
+        let meta_size = u32::from_be_bytes(heif[meta..meta + 4].try_into().unwrap()) + 2;
+        heif[meta..meta + 4].copy_from_slice(&meta_size.to_be_bytes());
+        heif[item + 8..item + 12].copy_from_slice(&(extent_offset + 2).to_be_bytes());
+        heif
     }
 }

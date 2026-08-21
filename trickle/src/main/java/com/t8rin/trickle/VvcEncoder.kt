@@ -16,15 +16,6 @@ object VvcEncoder {
         bitmap: Bitmap,
         options: Options = Options(),
     ): ByteArray {
-        require(
-            !options.preserveAlpha || (
-                    options.orientation == VvcOrientation.NORMAL &&
-                            options.contentLightLevel == null &&
-                            options.exif == null
-                    )
-        ) {
-            "VVC encoder cannot currently combine alpha with orientation, CLLI, or Exif metadata"
-        }
         val cicp = options.cicp
         val contentLightLevel = options.contentLightLevel
         return encodeNative(
