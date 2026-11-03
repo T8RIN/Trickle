@@ -12,12 +12,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.abs
+import kotlinx.coroutines.runBlocking
 
 @RunWith(AndroidJUnit4::class)
 class Jhm17Test {
 
     @Test
-    fun jpegPreservesStraightColorsOfTranslucentBitmap() {
+    fun jpegPreservesStraightColorsOfTranslucentBitmap() = runBlocking {
         val source = Bitmap.createBitmap(9, 11, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.argb(128, 32, 96, 192))
         }
@@ -35,7 +36,7 @@ class Jhm17Test {
     }
 
     @Test
-    fun progressiveJpegWithChromaSubsamplingCanBeDecoded() {
+    fun progressiveJpegWithChromaSubsamplingCanBeDecoded() = runBlocking {
         val source = Bitmap.createBitmap(17, 19, Bitmap.Config.RGB_565).apply {
             eraseColor(Color.BLUE)
         }
@@ -54,7 +55,7 @@ class Jhm17Test {
     }
 
     @Test
-    fun polishModesChangeJpegAndKeepItDecodable() {
+    fun polishModesChangeJpegAndKeepItDecodable() = runBlocking {
         val width = 64
         val height = 48
         val pixels = IntArray(width * height) { index ->
@@ -86,7 +87,7 @@ class Jhm17Test {
     }
 
     @Test
-    fun emptyAdditionalUsesEncoderDefaults() {
+    fun emptyAdditionalUsesEncoderDefaults() = runBlocking {
         val source = Bitmap.createBitmap(19, 21, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.GREEN)
         }
@@ -97,7 +98,7 @@ class Jhm17Test {
     }
 
     @Test
-    fun advancedProgressiveSettingsAreWrittenToJpeg() {
+    fun advancedProgressiveSettingsAreWrittenToJpeg() = runBlocking {
         val source = Bitmap.createBitmap(25, 19, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.RED)
         }
@@ -131,7 +132,7 @@ class Jhm17Test {
     }
 
     @Test
-    fun arithmeticModeOverridesProgressiveFlag() {
+    fun arithmeticModeOverridesProgressiveFlag() = runBlocking {
         val source = Bitmap.createBitmap(17, 17, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.BLUE)
         }

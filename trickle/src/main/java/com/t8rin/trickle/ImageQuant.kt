@@ -3,6 +3,7 @@
 package com.t8rin.trickle
 
 import android.graphics.Bitmap
+import kotlinx.coroutines.runInterruptible
 import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
 import com.t8rin.trickle.TrickleUtils.safe
@@ -13,11 +14,11 @@ object ImageQuant {
         System.loadLibrary("imagequant_jni")
     }
 
-    fun compress(
+    suspend fun compress(
         bitmap: Bitmap,
         options: Options = Options(),
-    ): ByteArray {
-        return compressBitmapNative(
+    ): ByteArray = runInterruptible {
+        compressBitmapNative(
             bitmap = bitmap.safe(),
             maxColors = options.maxColors,
             minQuality = options.minQuality,

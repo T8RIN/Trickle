@@ -12,7 +12,7 @@ interface LowPolyPipeline {
      * @param fill              fill ? Paint.Style.FILL : Paint.Style.STROKE
      * @return out Bitmap
      */
-    fun lowPoly(input: Bitmap, alphaOrPointCount: Float, fill: Boolean): Bitmap
+    suspend fun lowPoly(input: Bitmap, alphaOrPointCount: Float, fill: Boolean): Bitmap
 
     /**
      * generate sandpainting
@@ -22,6 +22,6 @@ interface LowPolyPipeline {
      * @param alphaOrPointCount (0.0, 1) or [1, max)
      * @return out Bitmap
      */
-    fun sandPainting(input: Bitmap, threshold: Int, alphaOrPointCount: Float): Bitmap
+    suspend fun sandPainting(input: Bitmap, threshold: Int, alphaOrPointCount: Float): Bitmap
 
 }

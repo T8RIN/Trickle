@@ -6,11 +6,12 @@ import android.graphics.Paint
 import android.graphics.Path
 import com.t8rin.trickle.LowPolyPipeline
 import com.t8rin.trickle.TrickleUtils.safe
+import kotlinx.coroutines.runInterruptible
 
 internal object LowPolyPipelineImpl : LowPolyPipeline {
 
-    override fun lowPoly(input: Bitmap, alphaOrPointCount: Float, fill: Boolean): Bitmap {
-        return generate(
+    override suspend fun lowPoly(input: Bitmap, alphaOrPointCount: Float, fill: Boolean): Bitmap = runInterruptible {
+        generate(
             input = input.safe(),
             threshold = 50,
             alphaOrPointCount = alphaOrPointCount,
@@ -20,8 +21,8 @@ internal object LowPolyPipelineImpl : LowPolyPipeline {
     }
 
 
-    override fun sandPainting(input: Bitmap, threshold: Int, alphaOrPointCount: Float): Bitmap {
-        return generateNonNative(
+    override suspend fun sandPainting(input: Bitmap, threshold: Int, alphaOrPointCount: Float): Bitmap = runInterruptible {
+        generateNonNative(
             input = input.safe(),
             threshold = threshold,
             alphaOrPointCount = alphaOrPointCount,

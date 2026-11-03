@@ -4,10 +4,11 @@ import android.graphics.Bitmap
 import com.t8rin.trickle.DitheringPipeline
 import com.t8rin.trickle.DitheringType
 import com.t8rin.trickle.TrickleUtils.safe
+import kotlinx.coroutines.runInterruptible
 
 internal object DitheringPipelineImpl : DitheringPipeline {
 
-    override fun dithering(
+    override suspend fun dithering(
         input: Bitmap,
         type: DitheringType,
         threshold: Int,
@@ -145,203 +146,245 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         DitheringType.ShiauFan,
         DitheringType.SpiralHalftone,
         DitheringType.HexagonalDot,
-        DitheringType.WaveLines -> ditheringPatternImpl(
+        DitheringType.WaveLines -> runInterruptible {
+            ditheringPatternImpl(
+                input = input.safe(),
+                pattern = type.ordinal - DitheringType.BayerSixteen.ordinal,
+                threshold = threshold,
+                isGrayScale = isGrayScale
+            ) ?: input
+        }
+    }
+
+    override suspend fun ordered2By2BayerDithering(
+        input: Bitmap,
+        threshold: Int,
+        isGrayScale: Boolean
+    ): Bitmap = runInterruptible {
+        ordered2By2BayerImpl(
             input = input.safe(),
-            pattern = type.ordinal - DitheringType.BayerSixteen.ordinal,
             threshold = threshold,
             isGrayScale = isGrayScale
         ) ?: input
     }
 
-    override fun ordered2By2BayerDithering(
+    override suspend fun ordered3By3BayerDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = ordered2By2BayerImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        ordered3By3BayerImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun ordered3By3BayerDithering(
+    override suspend fun ordered4By4BayerDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = ordered3By3BayerImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        ordered4By4BayerImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun ordered4By4BayerDithering(
+    override suspend fun ordered8By8BayerDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = ordered4By4BayerImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        ordered8By8BayerImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun ordered8By8BayerDithering(
+    override suspend fun floydSteinbergDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = ordered8By8BayerImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        floydSteinbergImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun floydSteinbergDithering(
+    override suspend fun jarvisJudiceNinkeDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = floydSteinbergImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        jarvisJudiceNinkeImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun jarvisJudiceNinkeDithering(
+    override suspend fun sierraDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = jarvisJudiceNinkeImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        sierraImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun sierraDithering(
+    override suspend fun twoRowSierraDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = sierraImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        twoRowSierraImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun twoRowSierraDithering(
+    override suspend fun sierraLiteDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = twoRowSierraImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        sierraLiteImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun sierraLiteDithering(
+    override suspend fun atkinsonDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = sierraLiteImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        atkinsonImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun atkinsonDithering(
+    override suspend fun stuckiDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = atkinsonImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        stuckiImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun stuckiDithering(
+    override suspend fun burkesDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = stuckiImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        burkesImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun burkesDithering(
+    override suspend fun falseFloydSteinbergDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = burkesImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        falseFloydSteinbergImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun falseFloydSteinbergDithering(
+    override suspend fun simpleLeftToRightErrorDiffusionDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = falseFloydSteinbergImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        simpleLeftToRightErrorDiffusionImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun simpleLeftToRightErrorDiffusionDithering(
+    override suspend fun randomDithering(
+        input: Bitmap,
+        isGrayScale: Boolean
+    ): Bitmap = runInterruptible {
+        randomImpl(
+            input = input.safe(),
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
+
+    override suspend fun simpleThresholdDithering(
         input: Bitmap,
         threshold: Int,
         isGrayScale: Boolean
-    ): Bitmap = simpleLeftToRightErrorDiffusionImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        simpleThresholdImpl(
+            input = input.safe(),
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun randomDithering(
+    override suspend fun clustered2x2Dithering(
         input: Bitmap,
         isGrayScale: Boolean
-    ): Bitmap = randomImpl(
-        input = input.safe(),
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        clustered2x2DitheringImpl(
+            input = input.safe(),
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun simpleThresholdDithering(
-        input: Bitmap,
-        threshold: Int,
-        isGrayScale: Boolean
-    ): Bitmap = simpleThresholdImpl(
-        input = input.safe(),
-        threshold = threshold,
-        isGrayScale = isGrayScale
-    ) ?: input
-
-    override fun clustered2x2Dithering(
+    override suspend fun clustered4x4Dithering(
         input: Bitmap,
         isGrayScale: Boolean
-    ): Bitmap = clustered2x2DitheringImpl(
-        input = input.safe(),
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        clustered4x4DitheringImpl(
+            input = input.safe(),
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun clustered4x4Dithering(
+    override suspend fun clustered8x8Dithering(
         input: Bitmap,
         isGrayScale: Boolean
-    ): Bitmap = clustered4x4DitheringImpl(
-        input = input.safe(),
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        clustered8x8DitheringImpl(
+            input = input.safe(),
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
-    override fun clustered8x8Dithering(
+    override suspend fun ylilomaDithering(
         input: Bitmap,
         isGrayScale: Boolean
-    ): Bitmap = clustered8x8DitheringImpl(
-        input = input.safe(),
-        isGrayScale = isGrayScale
-    ) ?: input
-
-    override fun ylilomaDithering(
-        input: Bitmap,
-        isGrayScale: Boolean
-    ): Bitmap = ylilomaDitheringImpl(
-        input = input.safe(),
-        isGrayScale = isGrayScale
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        ylilomaDitheringImpl(
+            input = input.safe(),
+            isGrayScale = isGrayScale
+        ) ?: input
+    }
 
     private external fun ditheringPatternImpl(
         input: Bitmap,

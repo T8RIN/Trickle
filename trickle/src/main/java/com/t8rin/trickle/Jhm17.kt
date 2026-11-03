@@ -3,6 +3,7 @@
 package com.t8rin.trickle
 
 import android.graphics.Bitmap
+import kotlinx.coroutines.runInterruptible
 import androidx.annotation.FloatRange
 import androidx.annotation.IntRange
 import com.t8rin.trickle.Jhm17.Options.Additional
@@ -15,10 +16,10 @@ object Jhm17 {
     }
 
     /** Encodes a bitmap as JPEG, discarding alpha. */
-    fun encode(
+    suspend fun encode(
         bitmap: Bitmap,
         options: Options = Options(),
-    ): ByteArray {
+    ): ByteArray = runInterruptible {
         require(options.quality in 1..100) { "JPEG quality must be in 1..100" }
         require(!bitmap.isRecycled) { "Bitmap has been recycled" }
         require(bitmap.width in 1..65535 && bitmap.height in 1..65535) {
@@ -38,7 +39,7 @@ object Jhm17 {
             }
         }
         val appSegments = additional?.appSegments?.toList()
-        return encodeNative(
+        encodeNative(
             bitmap = bitmap.safe(),
             width = bitmap.width,
             height = bitmap.height,

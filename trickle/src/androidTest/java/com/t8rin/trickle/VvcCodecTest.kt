@@ -7,12 +7,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlinx.coroutines.runBlocking
 
 @RunWith(AndroidJUnit4::class)
 class VvcCodecTest {
 
     @Test
-    fun opaqueOddSizedHeifCanBeDecodedSampled() {
+    fun opaqueOddSizedHeifCanBeDecodedSampled() = runBlocking {
         val source = Bitmap.createBitmap(593, 791, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.rgb(32, 96, 192))
         }
@@ -31,7 +32,7 @@ class VvcCodecTest {
     }
 
     @Test
-    fun transparentOddSizedHeifPreservesAlpha() {
+    fun transparentOddSizedHeifPreservesAlpha() = runBlocking {
         val source = Bitmap.createBitmap(9, 11, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.argb(127, 32, 96, 192))
         }
@@ -48,7 +49,7 @@ class VvcCodecTest {
     }
 
     @Test
-    fun opaqueRawVvcWorksWithDefaultAlphaOption() {
+    fun opaqueRawVvcWorksWithDefaultAlphaOption() = runBlocking {
         val source = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply {
             eraseColor(Color.rgb(32, 96, 192))
         }

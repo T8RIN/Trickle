@@ -6,6 +6,7 @@ import com.t8rin.trickle.EffectsPipeline
 import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.PopArtBlendMode
 import com.t8rin.trickle.TrickleUtils.safe
+import kotlinx.coroutines.runInterruptible
 
 internal object EffectsPipelineImpl : EffectsPipeline {
 
@@ -13,154 +14,188 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         System.loadLibrary("ntsc_jni")
     }
 
-    override fun oil(
+    override suspend fun oil(
         input: Bitmap,
         oilRange: Int
-    ): Bitmap = oilImpl(
-        input = input.copy(Bitmap.Config.ARGB_8888, true),
-        oilRange = oilRange
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        oilImpl(
+            input = input.safe(),
+            oilRange = oilRange
+        ) ?: input
+    }
 
-    override fun tv(
+    override suspend fun tv(
         input: Bitmap
-    ): Bitmap = tvImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
+    ): Bitmap = runInterruptible {
+        tvImpl(input.safe()) ?: input
+    }
 
-    override fun hdr(
+    override suspend fun hdr(
         input: Bitmap
-    ): Bitmap = hdrImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
+    ): Bitmap = runInterruptible {
+        hdrImpl(input.safe()) ?: input
+    }
 
-    override fun sketch(
+    override suspend fun sketch(
         input: Bitmap
-    ): Bitmap = sketchImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
+    ): Bitmap = runInterruptible {
+        sketchImpl(input.safe()) ?: input
+    }
 
-    override fun gotham(
+    override suspend fun gotham(
         input: Bitmap
-    ): Bitmap = gothamImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
+    ): Bitmap = runInterruptible {
+        gothamImpl(input.safe()) ?: input
+    }
 
-    override fun cropToContent(
+    override suspend fun cropToContent(
         input: Bitmap,
         colorToIgnore: Int,
         tolerance: Float
-    ): Bitmap = cropToContentImpl(
-        input = input.safe(),
-        colorToIgnore = colorToIgnore,
-        tolerance = tolerance
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        cropToContentImpl(
+            input = input.safe(),
+            colorToIgnore = colorToIgnore,
+            tolerance = tolerance
+        ) ?: input
+    }
 
-    override fun transferPalette(
+    override suspend fun transferPalette(
         source: Bitmap,
         target: Bitmap,
         intensity: Float
-    ): Bitmap = transferPaletteImpl(
-        source = source.safe(),
-        target = target.safe(),
-        intensity = intensity
-    ) ?: source
+    ): Bitmap = runInterruptible {
+        transferPaletteImpl(
+            source = source.safe(),
+            target = target.safe(),
+            intensity = intensity
+        ) ?: source
+    }
 
-    override fun noise(
+    override suspend fun noise(
         input: Bitmap,
         threshold: Int
-    ): Bitmap = noiseImpl(
-        srcBitmap = input.safe(),
-        threshold = threshold
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        noiseImpl(
+            srcBitmap = input.safe(),
+            threshold = threshold
+        ) ?: input
+    }
 
-    override fun shuffleBlur(
+    override suspend fun shuffleBlur(
         input: Bitmap,
         threshold: Float,
         strength: Float
-    ): Bitmap = shuffleBlurImpl(
-        srcBitmap = input.safe(),
-        threshold = threshold,
-        strength = strength
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        shuffleBlurImpl(
+            srcBitmap = input.safe(),
+            threshold = threshold,
+            strength = strength
+        ) ?: input
+    }
 
-    override fun colorPosterize(
+    override suspend fun colorPosterize(
         input: Bitmap,
         colors: IntArray
-    ): Bitmap = colorPosterizeImpl(
-        input = input.safe(),
-        colors = colors
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        colorPosterizeImpl(
+            input = input.safe(),
+            colors = colors
+        ) ?: input
+    }
 
-    override fun replaceColor(
+    override suspend fun replaceColor(
         input: Bitmap,
         sourceColor: Int,
         targetColor: Int,
         tolerance: Float
-    ): Bitmap = replaceColorImpl(
-        input = input.safe(),
-        sourceColor = sourceColor,
-        targetColor = targetColor,
-        tolerance = tolerance
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        replaceColorImpl(
+            input = input.safe(),
+            sourceColor = sourceColor,
+            targetColor = targetColor,
+            tolerance = tolerance
+        ) ?: input
+    }
 
-    override fun drawColorAbove(
+    override suspend fun drawColorAbove(
         input: Bitmap,
         color: Int
-    ): Bitmap = drawColorAboveImpl(
-        input = input.safe(),
-        color = color
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        drawColorAboveImpl(
+            input = input.safe(),
+            color = color
+        ) ?: input
+    }
 
-    override fun drawColorBehind(
+    override suspend fun drawColorBehind(
         input: Bitmap,
         color: Int
-    ): Bitmap = drawColorBehindImpl(
-        input = input.safe(),
-        color = color
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        drawColorBehindImpl(
+            input = input.safe(),
+            color = color
+        ) ?: input
+    }
 
-    override fun tritone(
+    override suspend fun tritone(
         input: Bitmap,
         shadowsColor: Int,
         middleColor: Int,
         highlightsColor: Int
-    ): Bitmap = tritoneImpl(
-        input = input.safe(),
-        shadowsColor = shadowsColor,
-        middleColor = middleColor,
-        highlightsColor = highlightsColor
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        tritoneImpl(
+            input = input.safe(),
+            shadowsColor = shadowsColor,
+            middleColor = middleColor,
+            highlightsColor = highlightsColor
+        ) ?: input
+    }
 
-    override fun polkaDot(
+    override suspend fun polkaDot(
         input: Bitmap,
         dotRadius: Int,
         spacing: Int
-    ): Bitmap = polkaDotImpl(
-        input = input.safe(),
-        dotRadius = dotRadius,
-        spacing = spacing
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        polkaDotImpl(
+            input = input.safe(),
+            dotRadius = dotRadius,
+            spacing = spacing
+        ) ?: input
+    }
 
-    override fun applyLut(
+    override suspend fun applyLut(
         input: Bitmap,
         lutBitmap: Bitmap,
         intensity: Float
-    ): Bitmap = applyLutImpl(
-        input = input.safe(),
-        lutBitmap = lutBitmap.safe(),
-        intensity = intensity
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        applyLutImpl(
+            input = input.safe(),
+            lutBitmap = lutBitmap.safe(),
+            intensity = intensity
+        ) ?: input
+    }
 
-    override fun applyCubeLut(
+    override suspend fun applyCubeLut(
         input: Bitmap,
         cubeLutPath: String,
         intensity: Float
-    ): Bitmap = applyCubeLutImpl(
-        input = input.safe(),
-        cubeLutPath = cubeLutPath,
-        intensity = intensity
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        applyCubeLutImpl(
+            input = input.safe(),
+            cubeLutPath = cubeLutPath,
+            intensity = intensity
+        ) ?: input
+    }
 
-    override fun popArt(
+    override suspend fun popArt(
         input: Bitmap,
         color: Int,
         blendMode: PopArtBlendMode,
         strength: Float
-    ): Bitmap {
+    ): Bitmap = runInterruptible {
         val (firstColor, secondColor, thirdColor, fourthColor) = squareHarmony(color)
-        return popArtImpl(
+        popArtImpl(
             input = input.safe(),
             firstColor = firstColor,
             secondColor = secondColor,
@@ -171,37 +206,43 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         ) ?: input
     }
 
-    override fun stackBlur(
+    override suspend fun stackBlur(
         bitmap: Bitmap,
         scale: Float,
         radius: Int
-    ): Bitmap = stackBlurImpl(
-        srcBitmap = bitmap.safe(),
-        scale = scale,
-        radius = radius
-    )
+    ): Bitmap = runInterruptible {
+        stackBlurImpl(
+            srcBitmap = bitmap.safe(),
+            scale = scale,
+            radius = radius
+        )
+    }
 
-    override fun fastBlur(
+    override suspend fun fastBlur(
         bitmap: Bitmap,
         scale: Float,
         radius: Int
-    ): Bitmap = fastBlurImpl(
-        srcBitmap = bitmap.safe(),
-        scale = scale,
-        radius = radius
-    )
+    ): Bitmap = runInterruptible {
+        fastBlurImpl(
+            srcBitmap = bitmap.safe(),
+            scale = scale,
+            radius = radius
+        )
+    }
 
-    override fun glitchVariant(
+    override suspend fun glitchVariant(
         src: Bitmap,
         iterations: Int,
         maxOffsetFraction: Float,
         channelShiftFraction: Float
-    ): Bitmap = glitchVariantImpl(
-        src = src.safe(),
-        iterations = iterations,
-        maxOffsetFraction = maxOffsetFraction,
-        channelShiftFraction = channelShiftFraction
-    ) ?: src
+    ): Bitmap = runInterruptible {
+        glitchVariantImpl(
+            src = src.safe(),
+            iterations = iterations,
+            maxOffsetFraction = maxOffsetFraction,
+            channelShiftFraction = channelShiftFraction
+        ) ?: src
+    }
 
     private external fun glitchVariantImpl(
         src: Bitmap,
@@ -210,15 +251,17 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         channelShiftFraction: Float
     ): Bitmap?
 
-    override fun vhsGlitch(
+    override suspend fun vhsGlitch(
         src: Bitmap,
         time: Float,
         strength: Float
-    ): Bitmap = vhsGlitchImpl(
-        src = src.safe(),
-        time = time,
-        strength = strength
-    ) ?: src
+    ): Bitmap = runInterruptible {
+        vhsGlitchImpl(
+            src = src.safe(),
+            time = time,
+            strength = strength
+        ) ?: src
+    }
 
     private external fun vhsGlitchImpl(
         src: Bitmap,
@@ -226,13 +269,13 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         strength: Float
     ): Bitmap?
 
-    override fun ntsc(
+    override suspend fun ntsc(
         src: Bitmap,
         settings: NtscSettings,
         frame: Int,
         scaleFactorX: Float,
         scaleFactorY: Float
-    ): Bitmap {
+    ): Bitmap = runInterruptible {
         ntscLibrary.value
 
         val headSwitching = settings.headSwitching
@@ -247,7 +290,7 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         val vhsEdgeWave = vhs?.edgeWave
         val scale = settings.scale
 
-        return ntscImpl(
+        ntscImpl(
             input = src.safe(),
             frame = frame,
             scaleFactorX = scaleFactorX,
@@ -333,15 +376,17 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         booleanSettings: BooleanArray
     ): Bitmap?
 
-    override fun blockGlitch(
+    override suspend fun blockGlitch(
         src: Bitmap,
         strength: Float,
         blockSizeFraction: Float
-    ): Bitmap = blockGlitchImpl(
-        src = src.safe(),
-        strength = strength,
-        blockSizeFraction = blockSizeFraction
-    ) ?: src
+    ): Bitmap = runInterruptible {
+        blockGlitchImpl(
+            src = src.safe(),
+            strength = strength,
+            blockSizeFraction = blockSizeFraction
+        ) ?: src
+    }
 
     private external fun blockGlitchImpl(
         src: Bitmap,
@@ -349,17 +394,19 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         blockSizeFraction: Float
     ): Bitmap?
 
-    override fun crtCurvature(
+    override suspend fun crtCurvature(
         src: Bitmap,
         curvature: Float,
         vignette: Float,
         chroma: Float
-    ): Bitmap = crtCurvatureImpl(
-        src = src.safe(),
-        curvature = curvature,
-        vignette = vignette,
-        chroma = chroma
-    ) ?: src
+    ): Bitmap = runInterruptible {
+        crtCurvatureImpl(
+            src = src.safe(),
+            curvature = curvature,
+            vignette = vignette,
+            chroma = chroma
+        ) ?: src
+    }
 
     private external fun crtCurvatureImpl(
         src: Bitmap,
@@ -368,17 +415,19 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         chroma: Float
     ): Bitmap?
 
-    override fun pixelMelt(
+    override suspend fun pixelMelt(
         src: Bitmap,
         strength: Float,
         maxDrop: Int
-    ): Bitmap = pixelMeltImpl(
-        src = src.safe(),
-        strength = strength,
-        maxDrop = maxDrop
-    ) ?: src
+    ): Bitmap = runInterruptible {
+        pixelMeltImpl(
+            src = src.safe(),
+            strength = strength,
+            maxDrop = maxDrop
+        ) ?: src
+    }
 
-    override fun bloom(
+    override suspend fun bloom(
         src: Bitmap,
         threshold: Float,
         intensity: Float,
@@ -386,25 +435,29 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         softKnee: Float,
         exposure: Float,
         gamma: Float
-    ): Bitmap = bloomImpl(
-        input = src.safe(),
-        threshold = threshold,
-        intensity = intensity,
-        radius = radius,
-        softKnee = softKnee,
-        exposure = exposure,
-        gamma = gamma
-    ) ?: src
+    ): Bitmap = runInterruptible {
+        bloomImpl(
+            input = src.safe(),
+            threshold = threshold,
+            intensity = intensity,
+            radius = radius,
+            softKnee = softKnee,
+            exposure = exposure,
+            gamma = gamma
+        ) ?: src
+    }
 
-    override fun autoWhiteBalance(
+    override suspend fun autoWhiteBalance(
         input: Bitmap,
         strength: Float,
         clipPercent: Float
-    ): Bitmap = autoWhiteBalanceImpl(
-        input = input.safe(),
-        strength = strength,
-        clipPercent = clipPercent
-    ) ?: input
+    ): Bitmap = runInterruptible {
+        autoWhiteBalanceImpl(
+            input = input.safe(),
+            strength = strength,
+            clipPercent = clipPercent
+        ) ?: input
+    }
 
     private external fun bloomImpl(
         input: Bitmap,

@@ -4,22 +4,23 @@ import android.graphics.Bitmap
 import com.t8rin.trickle.MagicResizeType
 import com.t8rin.trickle.ResizePipeline
 import com.t8rin.trickle.TrickleUtils.safe
+import kotlinx.coroutines.runInterruptible
 
 internal object ResizePipelineImpl : ResizePipeline {
 
-    override fun magicResize(
+    override suspend fun magicResize(
         input: Bitmap,
         width: Int,
         height: Int,
         type: MagicResizeType
-    ): Bitmap {
+    ): Bitmap = runInterruptible {
         require(width > 0 && height > 0) {
             "Target width and height must be greater than zero"
         }
 
-        if (input.width == width && input.height == height) return input
+        if (input.width == width && input.height == height) return@runInterruptible input
 
-        return magicResizeImpl(
+        magicResizeImpl(
             input = input.safe(),
             width = width,
             height = height,

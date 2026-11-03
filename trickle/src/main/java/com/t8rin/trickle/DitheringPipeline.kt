@@ -4,124 +4,124 @@ import android.graphics.Bitmap
 
 interface DitheringPipeline {
 
-    fun dithering(
+    suspend fun dithering(
         input: Bitmap,
         type: DitheringType,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun ordered2By2BayerDithering(
+    suspend fun ordered2By2BayerDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun ordered3By3BayerDithering(
+    suspend fun ordered3By3BayerDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun ordered4By4BayerDithering(
+    suspend fun ordered4By4BayerDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun ordered8By8BayerDithering(
+    suspend fun ordered8By8BayerDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun floydSteinbergDithering(
+    suspend fun floydSteinbergDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun jarvisJudiceNinkeDithering(
+    suspend fun jarvisJudiceNinkeDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun sierraDithering(
+    suspend fun sierraDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun twoRowSierraDithering(
+    suspend fun twoRowSierraDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun sierraLiteDithering(
+    suspend fun sierraLiteDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun atkinsonDithering(
+    suspend fun atkinsonDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun stuckiDithering(
+    suspend fun stuckiDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun burkesDithering(
+    suspend fun burkesDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun falseFloydSteinbergDithering(
+    suspend fun falseFloydSteinbergDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun simpleLeftToRightErrorDiffusionDithering(
+    suspend fun simpleLeftToRightErrorDiffusionDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun randomDithering(
+    suspend fun randomDithering(
         input: Bitmap,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun simpleThresholdDithering(
+    suspend fun simpleThresholdDithering(
         input: Bitmap,
         threshold: Int = 128,
         isGrayScale: Boolean = false
     ): Bitmap
 
-    fun clustered2x2Dithering(
+    suspend fun clustered2x2Dithering(
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap
 
-    fun clustered4x4Dithering(
+    suspend fun clustered4x4Dithering(
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap
 
-    fun clustered8x8Dithering(
+    suspend fun clustered8x8Dithering(
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap
 
-    fun ylilomaDithering(
+    suspend fun ylilomaDithering(
         input: Bitmap,
         isGrayScale: Boolean
     ): Bitmap

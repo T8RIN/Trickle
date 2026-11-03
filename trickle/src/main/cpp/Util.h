@@ -23,20 +23,6 @@
 
 #define PI 3.14159265
 
-/**
- * the following two macros only work under gcc compiler
- */
-#define    PROC_IMAGE_WITH_OPTIONS(env, pixels, width, height, FilterClass, options) ({\
-    FilterClass filter(reinterpret_cast<int*>(pixels), width, height, options); \
-    filter.procImage(); \
-})\
-
-#define PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, FilterClass) ({\
-    FilterClass filter(reinterpret_cast<int*>(pixels), width, height); \
-    filter.procImage(); \
-})\
-
-
 typedef void (*GENERAL_IMG_PROC_FUNC)(int *, int, int); // pixels, width, height
 
 static inline int min(int a, int b) {

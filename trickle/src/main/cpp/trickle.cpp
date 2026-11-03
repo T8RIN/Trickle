@@ -1,6 +1,7 @@
 #include "EncodingInterruption.h"
 #include <android/bitmap.h>
 #include <__functional/function.h>
+#include <new>
 #include "Util.h"
 #include "OilFilter.h"
 #include "TvFilter.h"
@@ -16,173 +17,98 @@
 #include "AutoWhiteBalanceFilter.h"
 #include "WarpEngine.cpp"
 
+template<typename Filter, typename... Options>
+static jobject applyLegacyFilter(JNIEnv *env, jobject input, Options... options) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
+
+    AndroidBitmapInfo sourceInfo;
+    if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0 ||
+        sourceInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return nullptr;
+
+    const size_t rowSize = static_cast<size_t>(sourceInfo.width) * 4;
+    jobject result = createBitmap(env, sourceInfo.width, sourceInfo.height);
+    AndroidBitmapInfo resultInfo;
+    if (!result || AndroidBitmap_getInfo(env, result, &resultInfo) < 0 ||
+        sourceInfo.stride < rowSize || resultInfo.stride < rowSize) return nullptr;
+
+    void *sourcePixels;
+    if (AndroidBitmap_lockPixels(env, input, &sourcePixels) < 0) return nullptr;
+    void *resultPixels;
+    if (AndroidBitmap_lockPixels(env, result, &resultPixels) < 0) {
+        AndroidBitmap_unlockPixels(env, input);
+        return nullptr;
+    }
+
+    auto *source = static_cast<const uint8_t *>(sourcePixels);
+    auto *target = static_cast<uint8_t *>(resultPixels);
+    for (size_t y = 0; y < sourceInfo.height; ++y) {
+        if (interruption.requested()) break;
+        memcpy(target + y * rowSize, source + y * sourceInfo.stride, rowSize);
+    }
+    AndroidBitmap_unlockPixels(env, input);
+
+    try {
+        if (!interruption.requested()) {
+            Filter filter(static_cast<int *>(resultPixels), sourceInfo.width, sourceInfo.height, options...);
+            filter.procImage();
+        }
+    } catch (const std::bad_alloc &) {
+        AndroidBitmap_unlockPixels(env, result);
+        if (!interruption.throwIfRequested()) {
+            jclass error = env->FindClass("java/lang/OutOfMemoryError");
+            if (error) env->ThrowNew(error, "Cannot allocate filter workspace");
+        }
+        return nullptr;
+    }
+
+    if (resultInfo.stride != rowSize) {
+        // The filters use packed rows. Expand them in place when the output has padding.
+        for (size_t y = resultInfo.height; y-- > 0;) {
+            if (interruption.requested()) break;
+            memmove(target + y * resultInfo.stride, target + y * rowSize, rowSize);
+        }
+    }
+    const int status = AndroidBitmap_unlockPixels(env, result);
+    return interruption.throwIfRequested() || status < 0 ? nullptr : result;
+}
+
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_oilImpl(JNIEnv *env,
                                                             jobject object, jobject bitmap,
                                                             jint oilRange) {
-    const EncodingInterruption interruption(env);
-    if (interruption.throwIfRequested()) return nullptr;
-    AndroidBitmapInfo info;
-    void *pixels;
-    int lock;
-
-    lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    uint32_t width = info.width;
-    uint32_t height = info.height;
-    uint32_t stride = info.stride;
-
-    OilFilterOptions options(oilRange);
-
-    int *result = PROC_IMAGE_WITH_OPTIONS(env, pixels, width, height, OilFilter, options);
-
-    AndroidBitmap_unlockPixels(env, bitmap);
-
-    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
+    return applyLegacyFilter<OilFilter>(env, bitmap, OilFilterOptions(oilRange));
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tvImpl(JNIEnv *env, jobject object,
                                                            jobject bitmap) {
-    const EncodingInterruption interruption(env);
-    if (interruption.throwIfRequested()) return nullptr;
-    AndroidBitmapInfo info;
-    void *pixels;
-    int lock;
-
-    lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    uint32_t width = info.width;
-    uint32_t height = info.height;
-    uint32_t stride = info.stride;
-
-    int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, TvFilter);
-
-    AndroidBitmap_unlockPixels(env, bitmap);
-
-    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
+    return applyLegacyFilter<TvFilter>(env, bitmap);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_hdrImpl(JNIEnv *env, jobject object,
                                                             jobject bitmap) {
-    const EncodingInterruption interruption(env);
-    if (interruption.throwIfRequested()) return nullptr;
-    AndroidBitmapInfo info;
-    void *pixels;
-    int lock;
-
-    lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    uint32_t width = info.width;
-    uint32_t height = info.height;
-    uint32_t stride = info.stride;
-
-    int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, HDRFilter);
-
-    AndroidBitmap_unlockPixels(env, bitmap);
-
-    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
+    return applyLegacyFilter<HDRFilter>(env, bitmap);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_sketchImpl(JNIEnv *env, jobject object,
                                                                jobject bitmap) {
-    const EncodingInterruption interruption(env);
-    if (interruption.throwIfRequested()) return nullptr;
-    AndroidBitmapInfo info;
-    void *pixels;
-    int lock;
-
-    lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    uint32_t width = info.width;
-    uint32_t height = info.height;
-    uint32_t stride = info.stride;
-
-    int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, SketchFilter);
-
-    AndroidBitmap_unlockPixels(env, bitmap);
-
-    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
+    return applyLegacyFilter<SketchFilter>(env, bitmap);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_gothamImpl(JNIEnv *env, jobject object,
                                                                jobject bitmap) {
-    const EncodingInterruption interruption(env);
-    if (interruption.throwIfRequested()) return nullptr;
-    AndroidBitmapInfo info;
-    void *pixels;
-    int lock;
-
-    lock = AndroidBitmap_getInfo(env, bitmap, &info);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    lock = AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    if (lock != ANDROID_BITMAP_RESULT_SUCCESS) {
-        AndroidBitmap_unlockPixels(env, bitmap);
-        return nullptr;
-    }
-
-    uint32_t width = info.width;
-    uint32_t height = info.height;
-    uint32_t stride = info.stride;
-
-    int *result = PROC_IMAGE_WITHOUT_OPTIONS(env, pixels, width, height, GothamFilter);
-
-    AndroidBitmap_unlockPixels(env, bitmap);
-
-    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
+    return applyLegacyFilter<GothamFilter>(env, bitmap);
 }
+
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_colorPosterizeImpl(JNIEnv *env, jobject thiz,

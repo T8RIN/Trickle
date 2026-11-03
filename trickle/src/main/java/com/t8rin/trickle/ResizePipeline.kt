@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 
 interface ResizePipeline {
 
-    fun magicResize(
+    suspend fun magicResize(
         input: Bitmap,
         width: Int,
         height: Int,

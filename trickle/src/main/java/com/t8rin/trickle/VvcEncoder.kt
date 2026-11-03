@@ -3,6 +3,7 @@
 package com.t8rin.trickle
 
 import android.graphics.Bitmap
+import kotlinx.coroutines.runInterruptible
 import androidx.annotation.IntRange
 import com.t8rin.trickle.TrickleUtils.safe
 
@@ -12,13 +13,13 @@ object VvcEncoder {
         System.loadLibrary("vvc_jni")
     }
 
-    fun encode(
+    suspend fun encode(
         bitmap: Bitmap,
         options: Options = Options(),
-    ): ByteArray {
+    ): ByteArray = runInterruptible {
         val cicp = options.cicp
         val contentLightLevel = options.contentLightLevel
-        return encodeNative(
+        encodeNative(
             bitmap = bitmap.safe(),
             quality = options.quality,
             lossless = options.lossless,

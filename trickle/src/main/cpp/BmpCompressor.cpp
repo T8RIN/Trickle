@@ -21,7 +21,7 @@ static inline void writeShort(std::vector<uint8_t> &buf, short value) {
 
 extern "C"
 JNIEXPORT jbyteArray JNICALL
-Java_com_t8rin_trickle_BmpCompressor_compress(
+Java_com_t8rin_trickle_BmpCompressor_compressNative(
         JNIEnv *env,
         jobject /* this */,
         jobject bitmap

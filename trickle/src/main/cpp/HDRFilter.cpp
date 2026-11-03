@@ -5,22 +5,27 @@
  *      Author: ragnarok
  */
 
+#include <memory>
+
 #include "HDRFilter.h"
 #include "GaussianBlurFilter.h"
 #include "SharpenFilter.h"
 
 int *HDRFilter::procImage() {
-    int *smoothPixels = new int[this->height * this->width];
-    memcpy(smoothPixels, this->pixels, width * height * sizeof(int));
+    const size_t pixelCount = static_cast<size_t>(width) * height;
+    std::unique_ptr<int[]> smoothPixels(new int[pixelCount]);
+    memcpy(smoothPixels.get(), pixels, pixelCount * sizeof(int));
 
-    GaussianBlurFilter *blurFilter = new GaussianBlurFilter(smoothPixels, width,
-                                                            height, 0.6);
-    smoothPixels = blurFilter->procImage();
+    {
+        GaussianBlurFilter blurFilter(smoothPixels.get(), width, height, 0.6);
+        blurFilter.procImage();
+    }
+    if (EncodingInterruption::currentRequested()) return pixels;
 
     double newR = 0, newG = 0, newB = 0;
     double blurA = 0;
     for (int row = 0; row < height; row++) {
-        if (EncodingInterruption::currentRequested()) break;
+        if (EncodingInterruption::currentRequested()) return pixels;
         for (int col = 0; col < width; col++) {
             int index = row * width + col;
             if (index < width * height) {
@@ -54,13 +59,9 @@ int *HDRFilter::procImage() {
         }
     }
 
-    delete blurFilter;
+    smoothPixels.reset();
+    if (EncodingInterruption::currentRequested()) return pixels;
 
-    SharpenFilter *sharpenFilter = new SharpenFilter(pixels, width, height);
-    pixels = sharpenFilter->procImage();
-
-    delete sharpenFilter;
-
-    return pixels;
+    SharpenFilter sharpenFilter(pixels, width, height);
+    return sharpenFilter.procImage();
 }
-

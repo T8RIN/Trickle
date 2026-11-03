@@ -3,6 +3,7 @@
 package com.t8rin.trickle
 
 import android.graphics.Bitmap
+import kotlinx.coroutines.runInterruptible
 import androidx.annotation.IntRange
 import com.t8rin.trickle.TrickleUtils.safe
 
@@ -12,11 +13,11 @@ object Oxipng {
         System.loadLibrary("oxipng_jni")
     }
 
-    fun optimize(
+    suspend fun optimize(
         bitmap: Bitmap,
         options: Options = Options.DEFAULT,
-    ): ByteArray {
-        return optimizeBitmapNative(
+    ): ByteArray = runInterruptible {
+        optimizeBitmapNative(
             bitmap = bitmap.safe(),
             level = options.level,
             stripAll = options.stripAll,
