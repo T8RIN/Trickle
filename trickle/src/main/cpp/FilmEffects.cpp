@@ -50,8 +50,10 @@ void filmGrain(const Image &image, const Output &output, const Params &p, uint32
                 const float radius = .31f + p[2] * .18f * (((bits >> 16u) & 255u) / 127.5f - 1.f);
                 const float distance = std::sqrt((u - cx) * (u - cx) + (v - cy) * (v - cy));
                 const float grain = 1.f - smooth(radius - footprint, radius + footprint, distance);
-                coverage += grain;
-                colored += grain * (((bits >> 24u) & 255u) / 127.5f - 1.f);
+                // Approximate the union of grain footprints in the pixel.
+                const float visible = (1.f - coverage) * grain;
+                coverage += visible;
+                colored += visible * (((bits >> 24u) & 255u) / 127.5f - 1.f);
             }
         }
         const float exposure = luma(original);

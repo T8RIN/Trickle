@@ -31,8 +31,19 @@ struct Scanline {
     }
 };
 
-constexpr float carrierCos[] = {1.f, 0.f, -1.f, 0.f};
-constexpr float carrierSin[] = {0.f, 1.f, 0.f, -1.f};
+struct PalCarrier {
+    std::array<float, 4> cosine;
+    std::array<float, 4> sine;
+};
+
+PalCarrier palCarrier(int line) {
+    // PAL-CRT reference: the line phase advances by a quarter cycle plus the 25 Hz offset.
+    // https://github.com/LMP88959/PAL-CRT
+    constexpr float lineFrequency = 15625.f;
+    const float phase = -pi * .5f * (line & 3) - 2.f * pi * line * 25.f / lineFrequency;
+    const float c = std::cos(phase), s = std::sin(phase);
+    return {{c, -s, -c, s}, {s, c, -s, -c}};
+}
 
 }
 
@@ -46,46 +57,61 @@ void palComposite(const Image &image, const Output &output, const Params &p, uin
     std::vector<Rgb> decoded(scan.samples);
     int lastLine = -1;
 
-    auto modulate = [&](int line, std::vector<float> &row) {
+    std::vector<Rgb> baseband(signal.size() + 2 * chromaRadius);
+    auto modulate = [&](int line, const PalCarrier &carrier, std::vector<float> &row) {
         const float sign = line & 1 ? -1.f : 1.f;
-        for (int x = -padding; x < scan.samples + padding; ++x) {
-            const auto yuv = scan.read(float(x), line * scan.lineStep);
-            const float u = yuv.g * phaseCos - sign * yuv.b * phaseSin;
-            const float v = yuv.g * phaseSin + sign * yuv.b * phaseCos;
-            row[x + padding] = yuv.r + u * carrierCos[x & 3] + v * carrierSin[x & 3] +
-                               (random(x, line, seed) - .5f) * p[2];
+        const int width = int(row.size());
+        const int window = 2 * chromaRadius + 1;
+        for (int i = 0; i < int(baseband.size()); ++i) {
+            baseband[i] = scan.read(float(i - padding - chromaRadius), line * scan.lineStep);
+        }
+
+        Rgb sum{};
+        for (int i = 0; i < window; ++i) sum = sum + baseband[i];
+        for (int i = 0; i < width; ++i) {
+            const int x = i - padding;
+            const int center = i + chromaRadius;
+            const float luma = mix(baseband[center].r,
+                                   (baseband[center - 1].r + 2.f * baseband[center].r + baseband[center + 1].r) * .25f,
+                                   p[0] * .35f);
+            const float u = (sum.g * phaseCos - sign * sum.b * phaseSin) / window;
+            const float v = (sum.g * phaseSin + sign * sum.b * phaseCos) / window;
+            row[i] = luma + u * carrier.cosine[x & 3] + v * carrier.sine[x & 3] +
+                     (random(x, line, seed) - .5f) * p[2];
+            if (i + window < int(baseband.size())) sum = sum + baseband[i + window] - baseband[i];
         }
     };
 
     render(image, output, amount, [&](int x, int y, Rgb) {
         const int line = int(y / scan.lineStep);
         if (line != lastLine) {
+            const auto carrier = palCarrier(line);
+            const auto delayedCarrier = palCarrier(std::max(0, line - 1));
             if (line == lastLine + 1 && lastLine >= 0) {
                 previous.swap(signal);
-            } else {
-                modulate(std::max(0, line - 1), previous);
+            } else if (line > 0) {
+                modulate(line - 1, delayedCarrier, previous);
             }
-            modulate(line, signal);
+            modulate(line, carrier, signal);
             lastLine = line;
 
             const float sign = line & 1 ? -1.f : 1.f;
             for (int i = 0; i < scan.samples; ++i) {
-                float ySum = 0.f;
                 float u = 0.f, v = 0.f, delayedU = 0.f, delayedV = 0.f;
                 const int count = 4 * chromaRadius;
                 for (int tap = -count / 2; tap < count / 2; ++tap) {
                     const int j = i + tap + padding;
                     const int phase = (i + tap) & 3;
-                    u += signal[j] * carrierCos[phase];
-                    v += signal[j] * carrierSin[phase];
-                    delayedU += previous[j] * carrierCos[phase];
-                    delayedV += previous[j] * carrierSin[phase];
+                    u += signal[j] * carrier.cosine[phase];
+                    v += signal[j] * carrier.sine[phase];
+                    delayedU += previous[j] * delayedCarrier.cosine[phase];
+                    delayedV += previous[j] * delayedCarrier.sine[phase];
                 }
-                for (int tap = -1; tap <= 2; ++tap) {
-                    ySum += signal[i + tap + padding];
-                }
+                const int center = i + padding;
+                const float low = (signal[center - 2] + signal[center + 2] +
+                                   2.f * (signal[center - 1] + signal[center] + signal[center + 1])) * .125f;
                 const float delay = line > 0 ? p[5] * .5f : 0.f;
-                const float luminance = mix(signal[i + padding], ySum * .25f, p[0]);
+                const float luminance = mix(signal[center], low, p[0]);
                 decoded[i] = decode({luminance, 2.f / count * mix(u, delayedU, delay),
                                      sign * 2.f / count * mix(v, -delayedV, delay)});
             }
