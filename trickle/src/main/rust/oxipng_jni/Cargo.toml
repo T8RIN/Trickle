@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-oxipng = { version = "10.1.0", default-features = false, features = ["parallel", "zopfli"] }
+oxipng = { version = "=10.1.1", default-features = false, features = ["parallel", "zopfli"] }
 jni = { version = "0.21", default-features = false }
 png = "0.17"
 

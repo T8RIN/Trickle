@@ -1,3 +1,9 @@
+#[path = "../../interruption.rs"]
+mod interruption;
+
+use interruption::Interruption;
+use std::sync::Arc;
+
 #[cfg(target_os = "android")]
 #[link(name = "jnigraphics")]
 unsafe extern "C" {}
@@ -133,7 +139,7 @@ fn normalize_heif_for_garnetash(mut heif: Vec<u8>) -> Vec<u8> {
     heif
 }
 
-unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<(Vec<u8>, u32, u32), String> {
+unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject, interruption: &Interruption) -> Result<(Vec<u8>, u32, u32), String> {
     let raw_env = env.get_raw();
     let raw_bitmap = bitmap.as_raw();
     let mut info = AndroidBitmapInfo {
@@ -158,6 +164,10 @@ unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<(Vec<u8>, u3
     let row_bytes = info.width as usize * 4;
     let mut rgba = Vec::with_capacity(row_bytes * info.height as usize);
     for y in 0..info.height as usize {
+        if interruption.is_requested() {
+            unsafe { AndroidBitmap_unlockPixels(raw_env, raw_bitmap) };
+            return Err("Encoding interrupted".into());
+        }
         let row = unsafe {
             std::slice::from_raw_parts(
                 (pixels_ptr as *const u8).add(y * info.stride as usize),
@@ -507,8 +517,18 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcEncoder_encodeNative(
     max_fall: jint,
     exif: JByteArray,
 ) -> jbyteArray {
+    let interruption = match Interruption::new(&mut env) {
+        Ok(value) => Arc::new(value),
+        Err(error) => {
+            if !env.exception_check().unwrap_or(true) {
+                throw(&mut env, &error.to_string());
+            }
+            return std::ptr::null_mut();
+        }
+    };
     let result = (|| -> Result<Vec<u8>, String> {
-        let (rgba, width, height) = unsafe { read_bitmap(&mut env, &bitmap) }?;
+        interruption.check()?;
+        let (rgba, width, height) = unsafe { read_bitmap(&mut env, &bitmap, &interruption) }?;
         let mut color = ColorMetadata::default();
         if jbool(has_cicp) {
             color.cicp = Some(Cicp {
@@ -546,13 +566,21 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcEncoder_encodeNative(
             .with_deblocking(jbool(deblock))
             .with_color(color)
             .with_metadata(metadata);
-        encode_bitmap(&rgba, width, height, &cfg, container, jbool(preserve_alpha))
+        let check = Arc::clone(&interruption);
+        let bytes = garnetash::with_cancel_check(
+            move || check.is_requested(),
+            || encode_bitmap(&rgba, width, height, &cfg, container, jbool(preserve_alpha)),
+        )?;
+        interruption.check()?;
+        Ok(bytes)
     })();
 
     match result.and_then(|bytes| to_java_bytes(&mut env, &bytes)) {
         Ok(array) => array,
         Err(error) => {
-            throw(&mut env, &error);
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &error);
+            }
             std::ptr::null_mut()
         }
     }

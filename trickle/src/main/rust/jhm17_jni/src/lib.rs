@@ -1,9 +1,14 @@
+#[path = "../../interruption.rs"]
+mod interruption;
 mod options;
+
+use interruption::Interruption;
 
 use jhm17::{ColorType, Encoder, SamplingFactor, rgb_to_ycbcr};
 use jni::JNIEnv;
 use jni::objects::{JByteArray, JFloatArray, JIntArray, JObject, JObjectArray, JValue};
 use jni::sys::{JNI_TRUE, jboolean, jbyteArray, jint};
+use std::sync::Arc;
 
 fn read_bitmap(
     env: &mut JNIEnv,
@@ -11,6 +16,7 @@ fn read_bitmap(
     width: jint,
     height: jint,
     grayscale: bool,
+    interruption: &Interruption,
 ) -> Result<Vec<u8>, String> {
     let channels = if grayscale { 1 } else { 3 };
     let len = (width as usize)
@@ -24,6 +30,7 @@ fn read_bitmap(
 
     // Bitmap.getPixels returns straight sRGB colors, including for premultiplied bitmaps.
     for y in 0..height {
+        interruption.check()?;
         env.call_method(
             bitmap,
             "getPixels",
@@ -79,9 +86,21 @@ pub extern "system" fn Java_com_t8rin_trickle_Jhm17_encodeNative(
     app_numbers: JIntArray,
     app_data: JObjectArray,
 ) -> jbyteArray {
+    let interruption = match Interruption::new(&mut env) {
+        Ok(value) => Arc::new(value),
+        Err(error) => {
+            if !env.exception_check().unwrap_or(true) {
+                let _ = env.throw_new("java/lang/RuntimeException", error.to_string());
+            }
+            return std::ptr::null_mut();
+        }
+    };
     let result = (|| {
+        interruption.check()?;
         let mut output = Vec::new();
         let mut encoder = Encoder::new(&mut output, quality as u8);
+        let check = Arc::clone(&interruption);
+        encoder.set_cancel_check(move || check.is_requested());
         encoder.set_progressive(progressive == JNI_TRUE);
         let sampling = match chroma {
             1 => Some(SamplingFactor::R_4_2_0),
@@ -113,7 +132,7 @@ pub extern "system" fn Java_com_t8rin_trickle_Jhm17_encodeNative(
         options::apply_metadata(&mut env, &mut encoder, &icc, &exif, &app_numbers, &app_data)?;
 
         let grayscale = grayscale == JNI_TRUE;
-        let pixels = read_bitmap(&mut env, &bitmap, width, height, grayscale)?;
+        let pixels = read_bitmap(&mut env, &bitmap, width, height, grayscale, &interruption)?;
         let color = if grayscale {
             ColorType::Luma
         } else {
@@ -122,6 +141,7 @@ pub extern "system" fn Java_com_t8rin_trickle_Jhm17_encodeNative(
         encoder
             .encode(&pixels, width as u16, height as u16, color)
             .map_err(|e| e.to_string())?;
+        interruption.check()?;
         env.byte_array_from_slice(&output)
             .map_err(|e| e.to_string())
     })();
@@ -129,7 +149,7 @@ pub extern "system" fn Java_com_t8rin_trickle_Jhm17_encodeNative(
     match result {
         Ok(array) => JByteArray::into_raw(array),
         Err(error) => {
-            if matches!(env.exception_check(), Ok(false)) {
+            if matches!(env.exception_check(), Ok(false)) && !interruption.throw(&mut env) {
                 let _ = env.throw_new("java/lang/RuntimeException", format!("jhm17: {error}"));
             }
             std::ptr::null_mut()

@@ -1,7 +1,12 @@
 #[link(name = "jnigraphics")]
 extern "C" {}
 
-use imagequant::{Attributes, RGBA};
+#[path = "../../interruption.rs"]
+mod interruption;
+
+use imagequant::{Attributes, ControlFlow, RGBA};
+use interruption::Interruption;
+use std::sync::Arc;
 use jni::objects::{JClass, JObject};
 use jni::sys::{jboolean, jbyteArray, jdouble, jfloat, jint, JNI_TRUE};
 use jni::JNIEnv;
@@ -101,7 +106,7 @@ fn selected_bit_depth(requested: jint, palette_len: usize) -> (BitDepth, u8) {
     (depth, bits)
 }
 
-unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<BitmapBuffer, String> {
+unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject, interruption: &Interruption) -> Result<BitmapBuffer, String> {
     let raw_env = env.get_raw();
     let raw_bitmap = bitmap.as_raw();
     let mut info = AndroidBitmapInfo {
@@ -132,6 +137,10 @@ unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<BitmapBuffer
     let mut pixels = Vec::with_capacity(width * height);
 
     for y in 0..height {
+        if interruption.is_requested() {
+            AndroidBitmap_unlockPixels(raw_env, raw_bitmap);
+            return Err("Encoding interrupted".into());
+        }
         let row = std::slice::from_raw_parts(src.add(y * stride), row_bytes);
         for px in row.chunks_exact(4) {
             pixels.push(RGBA::new(px[0], px[1], px[2], px[3]));
@@ -262,15 +271,29 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_ImageQuant_compressBitmapNa
     png_filter: jint,
     adaptive_filter: jboolean,
 ) -> jbyteArray {
-    let buffer = match read_bitmap(&mut env, &bitmap) {
+    let interruption = match Interruption::new(&mut env) {
+        Ok(value) => Arc::new(value),
+        Err(e) => {
+            if !env.exception_check().unwrap_or(true) {
+                throw(&mut env, &e.to_string());
+            }
+            return std::ptr::null_mut();
+        }
+    };
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
+    let buffer = match read_bitmap(&mut env, &bitmap, &interruption) {
         Ok(buffer) => buffer,
         Err(e) => {
-            throw(&mut env, &e);
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &e);
+            }
             return std::ptr::null_mut();
         }
     };
 
-    let attr = match build_attributes(
+    let mut attr = match build_attributes(
         max_colors,
         min_quality,
         target_quality,
@@ -284,6 +307,15 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_ImageQuant_compressBitmapNa
             return std::ptr::null_mut();
         }
     };
+
+    let quantization_interruption = Arc::clone(&interruption);
+    attr.set_progress_callback(move |_| {
+        if quantization_interruption.is_requested() {
+            ControlFlow::Break
+        } else {
+            ControlFlow::Continue
+        }
+    });
 
     let mut image = match attr.new_image(
         buffer.pixels,
@@ -301,7 +333,9 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_ImageQuant_compressBitmapNa
     let mut result = match attr.quantize(&mut image) {
         Ok(result) => result,
         Err(e) => {
-            throw(&mut env, &format!("quantize failed: {e:?}"));
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &format!("quantize failed: {e:?}"));
+            }
             return std::ptr::null_mut();
         }
     };
@@ -319,14 +353,27 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_ImageQuant_compressBitmapNa
         }
     }
 
+    let remapping_interruption = Arc::clone(&interruption);
+    result.set_progress_callback(move |_| {
+        if remapping_interruption.is_requested() {
+            ControlFlow::Break
+        } else {
+            ControlFlow::Continue
+        }
+    });
     let (palette, indices) = match result.remapped(&mut image) {
         Ok(remapped) => remapped,
         Err(e) => {
-            throw(&mut env, &format!("remap failed: {e:?}"));
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &format!("remap failed: {e:?}"));
+            }
             return std::ptr::null_mut();
         }
     };
 
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
     let png = match encode_indexed_png(
         buffer.width,
         buffer.height,
@@ -344,6 +391,9 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_ImageQuant_compressBitmapNa
         }
     };
 
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
     let out = match env.new_byte_array(png.len() as i32) {
         Ok(arr) => arr,
         Err(e) => {

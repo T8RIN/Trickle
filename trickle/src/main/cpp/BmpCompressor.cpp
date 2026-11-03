@@ -2,6 +2,7 @@
 #include <android/bitmap.h>
 #include <vector>
 #include <cstring>
+#include "EncodingInterruption.h"
 
 #define BYTE_PER_PIXEL 3
 #define BMP_WIDTH_OF_TIMES 4
@@ -25,6 +26,9 @@ Java_com_t8rin_trickle_BmpCompressor_compress(
         jobject /* this */,
         jobject bitmap
 ) {
+    const EncodingInterruption interruption(env);
+    if (env->ExceptionCheck() || interruption.throwIfRequested()) return nullptr;
+
     AndroidBitmapInfo info;
     void *pixelsPtr;
     int lock;
@@ -85,6 +89,11 @@ Java_com_t8rin_trickle_BmpCompressor_compress(
     uint32_t *src = static_cast<uint32_t *>(pixelsPtr);
 
     for (int row = height - 1; row >= 0; row--) {
+        if (interruption.requested()) {
+            AndroidBitmap_unlockPixels(env, bitmap);
+            interruption.throwIfRequested();
+            return nullptr;
+        }
         int offset = row * width;
         for (int col = 0; col < width; col++) {
             uint32_t px = src[offset + col];
@@ -103,6 +112,8 @@ Java_com_t8rin_trickle_BmpCompressor_compress(
     }
 
     AndroidBitmap_unlockPixels(env, bitmap);
+
+    if (interruption.throwIfRequested()) return nullptr;
 
     jbyteArray result = env->NewByteArray(buffer.size());
     env->SetByteArrayRegion(result, 0, buffer.size(),

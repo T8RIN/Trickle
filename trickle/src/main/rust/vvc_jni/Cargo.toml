@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-garnetash = { version = "0.1.1" }
+garnetash = { version = "=0.1.1" }
 jni = { version = "0.21", default-features = false }
 
 [profile.release]

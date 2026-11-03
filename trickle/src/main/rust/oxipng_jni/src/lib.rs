@@ -1,3 +1,9 @@
+#[path = "../../interruption.rs"]
+mod interruption;
+
+use interruption::Interruption;
+use std::sync::Arc;
+
 #[link(name = "jnigraphics")]
 extern "C" {}
 
@@ -95,6 +101,7 @@ fn encode_rgba_to_png(
     width: u32,
     height: u32,
     stride: u32,
+    interruption: &Interruption,
 ) -> Result<Vec<u8>, String> {
     use std::io::Write;
     let mut buf = Vec::with_capacity((width * height * 4) as usize);
@@ -108,6 +115,7 @@ fn encode_rgba_to_png(
         let row_bytes = (width * 4) as usize;
         let stride_usize = stride as usize;
         for row in 0..height as usize {
+            interruption.check()?;
             let row_slice =
                 unsafe { std::slice::from_raw_parts(pixels.add(row * stride_usize), row_bytes) };
             stream.write_all(row_slice).map_err(|e| e.to_string())?;
@@ -134,6 +142,19 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_Oxipng_optimizeBitmapNative
     timeout_ms: jlong,
     use_zopfli: jboolean,
 ) -> jbyteArray {
+    let interruption = match Interruption::new(&mut env) {
+        Ok(value) => Arc::new(value),
+        Err(e) => {
+            if !env.exception_check().unwrap_or(true) {
+                throw(&mut env, &e.to_string());
+            }
+            return std::ptr::null_mut();
+        }
+    };
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
+
     let raw_env = env.get_raw();
     let raw_bmp = bitmap.as_raw();
 
@@ -161,7 +182,7 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_Oxipng_optimizeBitmapNative
 
     let png_buf = match info.format {
         ANDROID_BITMAP_FORMAT_RGBA_8888 => {
-            encode_rgba_to_png(raw, info.width, info.height, info.stride)
+            encode_rgba_to_png(raw, info.width, info.height, info.stride, &interruption)
         }
         other => {
             AndroidBitmap_unlockPixels(raw_env, raw_bmp);
@@ -175,7 +196,9 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_Oxipng_optimizeBitmapNative
     let png_buf = match png_buf {
         Ok(v) => v,
         Err(e) => {
-            throw(&mut env, &e);
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &e);
+            }
             return std::ptr::null_mut();
         }
     };
@@ -184,13 +207,21 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_Oxipng_optimizeBitmapNative
     let opts = build_options(
         level, strip_all, fix_errors, force, interlace, timeout_ms, use_zopfli,
     );
-    let optimized = match oxipng::optimize_from_memory(&png_buf, &opts) {
+    let check = Arc::clone(&interruption);
+    let optimized = match oxipng::optimize_from_memory_with_cancel(&png_buf, &opts, move || {
+        check.is_requested()
+    }) {
         Ok(v) => v,
         Err(e) => {
-            throw(&mut env, &e.to_string());
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &e.to_string());
+            }
             return std::ptr::null_mut();
         }
     };
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
 
     // --- Return ByteArray without extra copies ---
     let out = match env.new_byte_array(optimized.len() as i32) {
