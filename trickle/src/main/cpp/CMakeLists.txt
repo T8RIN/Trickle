@@ -42,6 +42,7 @@ add_library( # Sets the name of the library.
         BitmapUtils.cpp
         MagicResize.cpp
         Dithering.cpp
+        DitheringPatterns.cpp
         ScanAlpha.cpp
         lowpoly/lowpoly-lib.cpp
         lowpoly/sobel.c

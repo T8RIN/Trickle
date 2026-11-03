@@ -20,5 +20,24 @@ enum class DitheringType {
     Clustered2x2,
     Clustered4x4,
     Clustered8x8,
-    Yililoma
+    Yililoma,
+    // Keep these entries in the order of DitherPattern in DitheringPatterns.cpp.
+    BayerSixteen,
+    BlueNoise,
+    InterleavedGradientNoise,
+    ClusteredDot,
+    Diamond,
+    HorizontalLines,
+    VerticalLines,
+    DiagonalLines,
+    CrosshatchMatrix,
+    SerpentineFloydSteinberg,
+    SerpentineAtkinson,
+    SerpentineBurkes,
+    Riemersma,
+    Ostromoukhov,
+    ShiauFan,
+    SpiralHalftone,
+    HexagonalDot,
+    WaveLines
 }

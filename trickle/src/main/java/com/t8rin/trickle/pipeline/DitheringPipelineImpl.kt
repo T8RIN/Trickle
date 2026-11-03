@@ -127,6 +127,30 @@ internal object DitheringPipelineImpl : DitheringPipeline {
             input = input.safe(),
             isGrayScale = isGrayScale
         )
+
+        DitheringType.BayerSixteen,
+        DitheringType.BlueNoise,
+        DitheringType.InterleavedGradientNoise,
+        DitheringType.ClusteredDot,
+        DitheringType.Diamond,
+        DitheringType.HorizontalLines,
+        DitheringType.VerticalLines,
+        DitheringType.DiagonalLines,
+        DitheringType.CrosshatchMatrix,
+        DitheringType.SerpentineFloydSteinberg,
+        DitheringType.SerpentineAtkinson,
+        DitheringType.SerpentineBurkes,
+        DitheringType.Riemersma,
+        DitheringType.Ostromoukhov,
+        DitheringType.ShiauFan,
+        DitheringType.SpiralHalftone,
+        DitheringType.HexagonalDot,
+        DitheringType.WaveLines -> ditheringPatternImpl(
+            input = input.safe(),
+            pattern = type.ordinal - DitheringType.BayerSixteen.ordinal,
+            threshold = threshold,
+            isGrayScale = isGrayScale
+        ) ?: input
     }
 
     override fun ordered2By2BayerDithering(
@@ -318,6 +342,13 @@ internal object DitheringPipelineImpl : DitheringPipeline {
         input = input.safe(),
         isGrayScale = isGrayScale
     ) ?: input
+
+    private external fun ditheringPatternImpl(
+        input: Bitmap,
+        pattern: Int,
+        threshold: Int,
+        isGrayScale: Boolean
+    ): Bitmap?
 
     private external fun ordered2By2BayerImpl(
         input: Bitmap,
