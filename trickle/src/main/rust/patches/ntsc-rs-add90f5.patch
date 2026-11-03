@@ -1,0 +1,243 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -8,3 +8,5 @@
+ pub mod yiq_fielding;
+ 
+ pub use settings::standard::{NtscEffect, NtscEffectFullSettings};
++
++pub use thread_pool::with_cancel_check;
+--- a/src/thread_pool.rs
++++ b/src/thread_pool.rs
+@@ -1,3 +1,39 @@
++use std::{cell::RefCell, sync::Arc};
++
++type Check = Arc<dyn Fn() -> bool + Send + Sync>;
++
++thread_local! {
++    static CHECK: RefCell<Option<Check>> = const { RefCell::new(None) };
++}
++
++fn current_check() -> Option<Check> {
++    CHECK.with(|slot| slot.borrow().clone())
++}
++
++pub(crate) fn cancelled() -> bool {
++    CHECK.with(|slot| slot.borrow().as_ref().is_some_and(|check| check()))
++}
++
++fn with_check<T>(check: Option<Check>, run: impl FnOnce() -> T) -> T {
++    struct Restore(Option<Check>);
++    impl Drop for Restore {
++        fn drop(&mut self) {
++            CHECK.with(|slot| slot.replace(self.0.take()));
++        }
++    }
++    let _restore = Restore(CHECK.with(|slot| slot.replace(check)));
++    run()
++}
++
++/// Apply the effect with a cooperative cancellation check shared with its workers.
++/// The caller must discard the output if cancellation was requested.
++pub fn with_cancel_check<T>(
++    check: impl Fn() -> bool + Send + Sync + 'static,
++    run: impl FnOnce() -> T,
++) -> T {
++    with_check(Some(Arc::new(check)), run)
++}
++
+ pub fn with_thread_pool<T: Send>(op: impl (FnOnce() -> T) + Send + Sync) -> T {
+     #[cfg(all(feature = "rayon", not(target_arch = "wasm32")))]
+     {
+@@ -17,7 +53,8 @@
+             pool.build().unwrap()
+         });
+ 
+-        pool.install(op)
++        let check = current_check();
++        pool.install(move || with_check(check, op))
+     }
+     #[cfg(any(not(feature = "rayon"), target_arch = "wasm32"))]
+     {
+@@ -60,7 +97,11 @@
+         let num_chunks = len / self.chunk_size;
+         let remainder = len % self.chunk_size;
+         let mut base = 0;
++        let check = current_check();
+         for i in 0..num_chunks {
++            if check.as_ref().is_some_and(|check| check()) {
++                return;
++            }
+             let chunks: [&mut [T]; N] = self
+                 .arrays
+                 .each_mut()
+@@ -69,7 +110,7 @@
+ 
+             base += self.chunk_size;
+         }
+-        if remainder != 0 {
++        if remainder != 0 && !check.as_ref().is_some_and(|check| check()) {
+             let chunks: [&mut [T]; N] = self
+                 .arrays
+                 .each_mut()
+@@ -150,9 +191,8 @@
+             let (head, tail) = rest.split_at(num_chunks);
+             rest = tail;
+ 
+-            scope.spawn(move |_| {
+-                head.seq_for_each(cb);
+-            });
++            let check = current_check();
++            scope.spawn(move |_| with_check(check, || head.seq_for_each(cb)));
+         }
+     }
+ 
+@@ -179,9 +219,6 @@
+     }
+ }
+ 
+-#[cfg(feature = "rayon")]
+-pub use rayon_core::join;
+-#[cfg(not(feature = "rayon"))]
+ pub fn join<A, B, RA, RB>(oper_a: A, oper_b: B) -> (RA, RB)
+ where
+     A: FnOnce() -> RA + Send,
+@@ -189,5 +226,17 @@
+     RA: Send,
+     RB: Send,
+ {
+-    (oper_a(), oper_b())
+-}
++    #[cfg(feature = "rayon")]
++    {
++        let check_a = current_check();
++        let check_b = check_a.clone();
++        rayon_core::join(
++            move || with_check(check_a, oper_a),
++            move || with_check(check_b, oper_b),
++        )
++    }
++    #[cfg(not(feature = "rayon"))]
++    {
++        (oper_a(), oper_b())
++    }
++}
+--- a/src/ntsc.rs
++++ b/src/ntsc.rs
+@@ -994,6 +994,9 @@
+             let offset = (-offset.1) as usize;
+             // Starting from the top, copy (or write a horizontally-shifted copy of) each row upwards.
+             for dst_row_idx in 0..height {
++                if thread_pool::cancelled() {
++                    return;
++                }
+                 let (i_dst_part, i_src_part) = yiq.i.split_at_mut((dst_row_idx + 1) * width);
+                 let (q_dst_part, q_src_part) = yiq.q.split_at_mut((dst_row_idx + 1) * width);
+ 
+@@ -1026,6 +1029,9 @@
+             let offset = offset.1 as usize;
+             // Starting from the bottom, copy (or write a horizontally-shifted copy of) each row downwards.
+             for dst_row_idx in (0..height).rev() {
++                if thread_pool::cancelled() {
++                    return;
++                }
+                 let (i_src_part, i_dst_part) = yiq.i.split_at_mut(dst_row_idx * width);
+                 let (q_src_part, q_dst_part) = yiq.q.split_at_mut(dst_row_idx * width);
+ 
+@@ -1126,22 +1132,28 @@
+ 
+     thread_pool::join(
+         || {
+-            yiq.i.chunks_exact_mut(width).for_each(|row| {
++            for row in yiq.i.chunks_exact_mut(width) {
++                if thread_pool::cancelled() {
++                    break;
++                }
+                 row.iter_mut().enumerate().for_each(|(index, i)| {
+                     let c_i = *i;
+                     *i = (delay_i[index] + c_i) * 0.5;
+                     delay_i[index] = c_i;
+                 });
+-            });
++            }
+         },
+         || {
+-            yiq.q.chunks_exact_mut(width).for_each(|row| {
++            for row in yiq.q.chunks_exact_mut(width) {
++                if thread_pool::cancelled() {
++                    break;
++                }
+                 row.iter_mut().enumerate().for_each(|(index, q)| {
+                     let c_q = *q;
+                     *q = (delay_q[index] + c_q) * 0.5;
+                     delay_q[index] = c_q;
+                 });
+-            });
++            }
+         },
+     );
+ }
+@@ -1185,6 +1197,9 @@
+                 .unwrap_or(1.0),
+         };
+ 
++        if thread_pool::cancelled() {
++            return;
++        }
+         luma_filter(yiq, &info, self.input_luma_filter);
+ 
+         match self.chroma_lowpass_in {
+@@ -1197,6 +1212,9 @@
+             ChromaLowpass::None => {}
+         };
+ 
++        if thread_pool::cancelled() {
++            return;
++        }
+         chroma_into_luma(
+             yiq,
+             &info,
+@@ -1264,6 +1282,9 @@
+             );
+         }
+ 
++        if thread_pool::cancelled() {
++            return;
++        }
+         luma_into_chroma(
+             yiq,
+             &info,
+@@ -1338,6 +1359,9 @@
+             );
+         }
+ 
++        if thread_pool::cancelled() {
++            return;
++        }
+         if let Some(vhs_settings) = &self.vhs_settings {
+             if let Some(edge_wave) = &vhs_settings.edge_wave
+                 && edge_wave.intensity > 0.0
+@@ -1458,6 +1482,9 @@
+             }
+         }
+ 
++        if thread_pool::cancelled() {
++            return;
++        }
+         if self.chroma_vert_blend {
+             chroma_vert_blend(yiq);
+         }
+@@ -1540,8 +1567,14 @@
+             dimensions.1,
+             field,
+         );
++        if thread_pool::cancelled() {
++            return;
++        }
+         let mut view = YiqView::from(&mut yiq);
+         self.apply_effect_to_yiq(&mut view, frame_num, scale_factor);
++        if thread_pool::cancelled() {
++            return;
++        }
+         view.write_to_strided_buffer::<S, T, _>(
+             input_frame,
+             BlitInfo::from_full_frame(dimensions.0, dimensions.1, row_bytes),

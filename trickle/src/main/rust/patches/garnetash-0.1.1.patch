@@ -1,0 +1,524 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -31,6 +31,38 @@
+ 
+ mod bitstream;
+ mod cabac;
++
++type CancelCheck = std::sync::Arc<dyn Fn() -> bool + Send + Sync>;
++
++thread_local! {
++    static CANCEL_CHECK: std::cell::RefCell<Option<CancelCheck>> = const { std::cell::RefCell::new(None) };
++}
++
++/// Supply a cooperative cancellation check for encoding in this scope.
++pub fn with_cancel_check<T>(
++    check: impl Fn() -> bool + Send + Sync + 'static,
++    encode: impl FnOnce() -> T,
++) -> T {
++    struct Restore(Option<CancelCheck>);
++    impl Drop for Restore {
++        fn drop(&mut self) {
++            CANCEL_CHECK.with(|check| check.replace(self.0.take()));
++        }
++    }
++    let _restore = Restore(CANCEL_CHECK.with(|slot| slot.replace(Some(std::sync::Arc::new(check)))));
++    encode()
++}
++
++fn current_cancel_check() -> Option<CancelCheck> {
++    CANCEL_CHECK.with(|check| check.borrow().clone())
++}
++
++fn check_cancelled(check: Option<&CancelCheck>) -> Result<(), EncodeError> {
++    if check.is_some_and(|check| check()) {
++        return Err(EncodeError::Interrupted);
++    }
++    Ok(())
++}
+ 
+ #[allow(dead_code)]
+ mod cclm;
+@@ -349,7 +381,7 @@
+     } else {
+         cfg.luma_qp()
+     };
+-    Ok(encode::encode_still(
++    encode::encode_still(
+         rgb,
+         width,
+         height,
+@@ -368,7 +400,7 @@
+         cfg.dual_tree,
+         cfg.cclm,
+         cfg.deblock,
+-    ))
++    )
+ }
+ 
+ /// Encode a packed 8-bit RGBA image to a VVC still picture. Alpha is discarded.
+@@ -392,7 +424,7 @@
+     } else {
+         cfg.luma_qp()
+     };
+-    Ok(encode::encode_still(
++    encode::encode_still(
+         rgba,
+         width,
+         height,
+@@ -411,7 +443,7 @@
+         cfg.dual_tree,
+         cfg.cclm,
+         cfg.deblock,
+-    ))
++    )
+ }
+ 
+ /// Encode RGB and also return the encoder's reconstruction as cropped planar
+@@ -433,7 +465,7 @@
+     } else {
+         cfg.luma_qp()
+     };
+-    Ok(encode::encode_with_recon(
++    encode::encode_with_recon(
+         rgb,
+         width,
+         height,
+@@ -451,7 +483,7 @@
+         cfg.dual_tree,
+         cfg.cclm,
+         cfg.deblock,
+-    ))
++    )
+ }
+ 
+ /// Encode RGB and wrap the result in a HEIF container (ISO/IEC 23008-12), the
+@@ -636,7 +668,7 @@
+     } else {
+         cfg.luma_qp()
+     };
+-    Ok(encode::encode_still_wide(
++    encode::encode_still_wide(
+         rgb,
+         width,
+         height,
+@@ -655,7 +687,7 @@
+         cfg.dual_tree,
+         cfg.cclm,
+         cfg.deblock,
+-    ))
++    )
+ }
+ 
+ /// Encode a `u16` alpha plane (`width × height`) as a monochrome VVC stream at
+--- a/src/error.rs
++++ b/src/error.rs
+@@ -37,6 +37,8 @@
+ /// Errors returned by the `garnetash` VVC image encoder.
+ #[derive(Clone, Debug, PartialEq, Eq)]
+ pub enum EncodeError {
++    /// The cancellation callback stopped encoding.
++    Interrupted,
+     /// Image width or height was 0 or exceeded the supported maximum.
+     InvalidDimensions { width: u32, height: u32 },
+     /// `quality` was outside the valid 1..=100 range.
+@@ -54,6 +56,7 @@
+ impl fmt::Display for EncodeError {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         match self {
++            EncodeError::Interrupted => f.write_str("encoding interrupted"),
+             EncodeError::InvalidDimensions { width, height } => {
+                 write!(f, "invalid image dimensions: {width}x{height}")
+             }
+--- a/src/encode.rs
++++ b/src/encode.rs
+@@ -714,7 +714,7 @@
+     dual_tree: bool,
+     cclm: bool,
+     deblock: bool,
+-) -> CoreOutput {
++) -> Result<CoreOutput, crate::EncodeError> {
+     let chroma = chroma.for_dimensions(width, height);
+     // Dual tree falls back to single tree for lossless non-4:2:0; AQ's cu_qp_delta
+     // is not implemented for the dual tree, so it is disabled there.
+@@ -1011,21 +1011,30 @@
+     static RD_ENC: std::cell::RefCell<CabacEncoder> = std::cell::RefCell::new(CabacEncoder::new());
+ }
+ 
+-fn run_ctu_wavefront<R, F>(ctu_cols: usize, ctu_rows: usize, threads: usize, process: F) -> Vec<R>
++fn run_ctu_wavefront<R, F>(
++    ctu_cols: usize,
++    ctu_rows: usize,
++    threads: usize,
++    process: F,
++) -> Result<Vec<R>, crate::EncodeError>
+ where
+     R: Send + Default,
+     F: Fn(usize, &mut LeafScratch) -> R + Sync,
+ {
+     let total = ctu_cols * ctu_rows;
++    let cancel = crate::current_cancel_check();
+     if threads <= 1 {
+         // Row-major order already respects causality (left + above first).
+         let mut sc = LeafScratch::new();
+-        return (0..total).map(|cidx| process(cidx, &mut sc)).collect();
++        return (0..total).map(|cidx| {
++            crate::check_cancelled(cancel.as_ref())?;
++            Ok(process(cidx, &mut sc))
++        }).collect();
+     }
+     use std::collections::VecDeque;
+     use std::sync::atomic::{
+-        AtomicUsize,
+-        Ordering::{AcqRel, Acquire},
++        AtomicBool, AtomicUsize,
++        Ordering::{AcqRel, Acquire, Release},
+     };
+     use std::sync::{Condvar, Mutex};
+     let at = |r: usize, c: usize| r * ctu_cols + c;
+@@ -1065,6 +1074,8 @@
+     let cvar_ref = &cvar;
+     let done_ref = &done;
+     let process_ref = &process;
++    let stopped = &AtomicBool::new(false);
++    let cancel = cancel.as_ref();
+     let results: Vec<Vec<(usize, R)>> = std::thread::scope(|s| {
+         let handles: Vec<_> = (0..nthreads)
+             .map(|_| {
+@@ -1075,6 +1086,11 @@
+                         let next = {
+                             let mut q = queue_ref.lock().unwrap();
+                             loop {
++                                if stopped.load(Acquire) || crate::check_cancelled(cancel).is_err() {
++                                    stopped.store(true, Release);
++                                    cvar_ref.notify_all();
++                                    break None;
++                                }
+                                 if let Some(c) = q.pop_front() {
+                                     break Some(c);
+                                 }
+@@ -1110,13 +1126,17 @@
+             .collect();
+         handles.into_iter().map(|h| h.join().unwrap()).collect()
+     });
++    if stopped.load(Acquire) {
++        return Err(crate::EncodeError::Interrupted);
++    }
++    crate::check_cancelled(cancel)?;
+     let mut assembled: Vec<R> = (0..total).map(|_| R::default()).collect();
+     for worker_out in results {
+         for (cidx, r) in worker_out {
+             assembled[cidx] = r;
+         }
+     }
+-    assembled
++    Ok(assembled)
+ }
+ 
+ #[allow(clippy::type_complexity)]
+@@ -1127,7 +1147,7 @@
+     ctu_cols: usize,
+     ctu_rows: usize,
+     threads: usize,
+-) -> Vec<Vec<LeafDecision>> {
++) -> Result<Vec<Vec<LeafDecision>>, crate::EncodeError> {
+     run_ctu_wavefront(ctu_cols, ctu_rows, threads, |cidx, sc| {
+         let mut decs = Vec::with_capacity(ctu_leaves[cidx].len());
+         for &(x, y, w, h) in &ctu_leaves[cidx] {
+@@ -2675,7 +2695,9 @@
+     src_cr: Vec<i32>,
+     threads: usize,
+     rdoq: bool,
+-) -> CoreOutput {
++) -> Result<CoreOutput, crate::EncodeError> {
++    let cancel = crate::current_cancel_check();
++    crate::check_cancelled(cancel.as_ref())?;
+     let chroma = headers.chroma;
+     let bit_depth = headers.bit_depth.bits();
+     let qp = headers.qp;
+@@ -2910,7 +2932,7 @@
+                     ));
+                 }
+                 ld
+-            });
++            })?;
+ 
+         // ---- Adaptive-quant QG resolution (one QG per 64×64 region) ----
+         // In the dual tree cu_qp_delta rides in the LUMA tree, coded at the QG's
+@@ -2939,6 +2961,7 @@
+             let mut dqp_done = false;
+             #[allow(clippy::needless_range_loop)]
+             for cidx in 0..nctu {
++                crate::check_cancelled(cancel.as_ref())?;
+                 for d in &luma_res[cidx] {
+                     let (qx, qy) = (d.x & !(qg - 1), d.y & !(qg - 1));
+                     let qgi = (qy / qg) * qg_cols + qx / qg;
+@@ -3000,7 +3023,7 @@
+                     ));
+                 }
+                 cd
+-            });
++            })?;
+ 
+         let mut enc = CabacEncoder::new();
+         let mut ctx = Contexts::new_intra(slice_qp);
+@@ -3077,7 +3100,8 @@
+         enc.encode_terminate(1);
+         let slice_data = enc.finish();
+         let (rec_y, rec_cb, rec_cr) = planes.into_recon();
+-        return CoreOutput {
++        crate::check_cancelled(cancel.as_ref())?;
++        return Ok(CoreOutput {
+             stream: headers.write_still_picture(&slice_data),
+             slice_data,
+             rec_y,
+@@ -3090,7 +3114,7 @@
+             qp,
+             bit_depth,
+             leaf_count: luma_leaves.len(),
+-        };
++        });
+     }
+ 
+     if headers.mtt {
+@@ -3119,7 +3143,7 @@
+         // Phase A: parallel analysis + reconstruction across the CTU wavefront.
+         let planes = Planes::new(cw, ch, cwc, chc);
+         let ctu_decisions =
+-            analyze_ctus_wavefront(&shared, &planes, &mtt_leaves, ctu_cols, ctu_rows, threads);
++            analyze_ctus_wavefront(&shared, &planes, &mtt_leaves, ctu_cols, ctu_rows, threads)?;
+ 
+         // Phase B: sequential CABAC replay + per-CTU-QG cu_qp_delta (subdiv 0).
+         let mut enc = CabacEncoder::new();
+@@ -3187,7 +3211,8 @@
+         enc.encode_terminate(1);
+         let slice_data = enc.finish();
+         let (rec_y, rec_cb, rec_cr) = planes.into_recon();
+-        return CoreOutput {
++        crate::check_cancelled(cancel.as_ref())?;
++        return Ok(CoreOutput {
+             stream: headers.write_still_picture(&slice_data),
+             slice_data,
+             rec_y,
+@@ -3200,13 +3225,13 @@
+             qp,
+             bit_depth,
+             leaf_count: leaves.len(),
+-        };
++        });
+     }
+ 
+     // ---- Phase A: analyse + reconstruct every leaf (parallel CTU wavefront) ----
+     let planes = Planes::new(cw, ch, cwc, chc);
+     let ctu_decisions =
+-        analyze_ctus_wavefront(&shared, &planes, &ctu_leaves, ctu_cols, ctu_rows, threads);
++        analyze_ctus_wavefront(&shared, &planes, &ctu_leaves, ctu_cols, ctu_rows, threads)?;
+ 
+     let mut enc = CabacEncoder::new();
+     let mut ctx = Contexts::new_intra(slice_qp);
+@@ -3314,7 +3339,8 @@
+             );
+         }
+     }
+-    CoreOutput {
++    crate::check_cancelled(cancel.as_ref())?;
++    Ok(CoreOutput {
+         stream: headers.write_still_picture(&slice_data),
+         slice_data,
+         rec_y,
+@@ -3327,7 +3353,7 @@
+         qp,
+         bit_depth,
+         leaf_count: total_leaves,
+-    }
++    })
+ }
+ 
+ /// Encode a packed planar YCbCr image (the layout produced by the decoder: luma
+@@ -3445,7 +3471,7 @@
+             }
+         }
+     }
+-    Ok(encode_planes(headers, src_y, src_cb, src_cr, threads, rdoq).stream)
++    Ok(encode_planes(headers, src_y, src_cb, src_cr, threads, rdoq)?.stream)
+ }
+ 
+ /// Encode packed 8-bit RGB(A) as a VVC still picture. `stride_px` is the number
+@@ -3469,10 +3495,10 @@
+     dual_tree: bool,
+     cclm: bool,
+     deblock: bool,
+-) -> Vec<u8> {
++) -> Result<Vec<u8>, crate::EncodeError> {
+     // 8-bit samples scaled up to the coded bit depth (the "upscale" path).
+     let scale_shift = (bit_depth - 8) as u32;
+-    encode_core(
++    Ok(encode_core(
+         rgb,
+         width,
+         height,
+@@ -3492,8 +3518,8 @@
+         dual_tree,
+         cclm,
+         deblock,
+-    )
+-    .stream
++    )?
++    .stream)
+ }
+ 
+ /// Encode native RGB(A) samples already at the coded bit depth (no up-scaling),
+@@ -3517,12 +3543,12 @@
+     dual_tree: bool,
+     cclm: bool,
+     deblock: bool,
+-) -> Vec<u8> {
+-    encode_core(
++) -> Result<Vec<u8>, crate::EncodeError> {
++    Ok(encode_core(
+         rgb, width, height, qp, bit_depth, stride_px, lossless, chroma, 0, threads, rdoq, aq, mtt,
+         lfnst, dep_quant, mts, dual_tree, cclm, deblock,
+-    )
+-    .stream
++    )?
++    .stream)
+ }
+ 
+ pub(crate) fn encode_with_recon(
+@@ -3543,7 +3569,7 @@
+     dual_tree: bool,
+     cclm: bool,
+     deblock: bool,
+-) -> (Vec<u8>, Vec<u8>) {
++) -> Result<(Vec<u8>, Vec<u8>), crate::EncodeError> {
+     let chroma = chroma.for_dimensions(width, height);
+     let scale_shift = (bit_depth - 8) as u32;
+     let o = encode_core(
+@@ -3566,7 +3592,7 @@
+         dual_tree,
+         cclm,
+         deblock,
+-    );
++    )?;
+     let (w, h) = (width as usize, height as usize);
+     let has_chroma = !chroma.is_monochrome();
+     let (dcw, dch) = if has_chroma {
+@@ -3601,7 +3627,7 @@
+             }
+         }
+     }
+-    (o.stream, yuv)
++    Ok((o.stream, yuv))
+ }
+ 
+ #[cfg(test)]
+@@ -3667,7 +3693,7 @@
+                 let o8 = encode_core(
+                     &rgb8, w as u32, h as u32, qp, 8, 3, false, chroma, 0, 1, true, true, false,
+                     false, false, false, false, false, false,
+-                );
++                ).unwrap();
+                 let img8 = crate::decode_266(&o8.stream).expect("8-bit AQ decode");
+                 assert_eq!(
+                     img8.planes,
+@@ -3677,7 +3703,7 @@
+                 let o10 = encode_core(
+                     &rgb10, w as u32, h as u32, qp, 10, 3, false, chroma, 0, 1, true, true, false,
+                     false, false, false, false, false, false,
+-                );
++                ).unwrap();
+                 let img10 = crate::decode_266(&o10.stream).expect("10-bit AQ decode");
+                 assert_eq!(
+                     img10.planes,
+@@ -3946,7 +3972,7 @@
+                 false,
+                 false,
+                 false,
+-            );
++            ).unwrap();
+             let (ry, rcb, rcr) = decode_slice(&o);
+             assert_eq!(ry, o.rec_y, "luma mismatch qp={qp}");
+             assert_eq!(rcb, o.rec_cb, "Cb mismatch qp={qp}");
+@@ -3980,7 +4006,7 @@
+             false,
+             false,
+             false,
+-        );
++        ).unwrap();
+         let nals = split_nals(&o.stream);
+         assert_eq!(nals.len(), 3, "expected SPS, PPS, IDR");
+         let idr = &nals[2];
+@@ -4014,7 +4040,7 @@
+             false,
+             false,
+             false,
+-        );
++        ).unwrap();
+         o2.slice_data = slice_data.to_vec();
+         let (ry, _, _) = decode_slice(&o2);
+         assert_eq!(ry, o.rec_y);
+@@ -4055,8 +4081,8 @@
+             cclm: false,
+             deblock: false,
+         };
+-        let off = encode_planes(hdr(false), src_y.clone(), Vec::new(), Vec::new(), 1, true);
+-        let on = encode_planes(hdr(true), src_y.clone(), Vec::new(), Vec::new(), 1, true);
++        let off = encode_planes(hdr(false), src_y.clone(), Vec::new(), Vec::new(), 1, true).unwrap();
++        let on = encode_planes(hdr(true), src_y.clone(), Vec::new(), Vec::new(), 1, true).unwrap();
+         // The decoder reproduces the encoder reconstruction bit-exactly.
+         let img = crate::decode_266(&on.stream).expect("LFNST stream must decode");
+         let enc_planes: Vec<u8> = on.rec_y.iter().map(|&v| v as u8).collect();
+@@ -4089,7 +4115,7 @@
+             false,
+             false,
+             false,
+-        );
++        ).unwrap();
+         let (recon, cw) = (o.rec_y, o.cw);
+         // Compare against the encoder's own luma source for the visible region.
+         let mut sse = 0i64;
+@@ -4173,7 +4199,7 @@
+                     src_cr.clone(),
+                     1,
+                     true,
+-                );
++                ).unwrap();
+                 assert!(
+                     o.leaf_count > (w / 32) * (h / 32),
+                     "too few MTT leaves {chroma:?} {w}x{h}"
+@@ -4259,7 +4285,7 @@
+                 src_cr.clone(),
+                 1,
+                 true,
+-            )
++            ).unwrap()
+         };
+         for (name, aq, mtt) in [
+             ("QT", false, false),
+@@ -4403,7 +4429,7 @@
+             false,
+             false,
+             false,
+-        );
++        ).unwrap();
+         assert_eq!(&bytes[..4], &[0, 0, 0, 1]);
+         let starts = bytes.windows(3).filter(|wnd| wnd == &[0, 0, 1]).count();
+         assert!(starts >= 3, "expected >=3 NAL units, found {starts}");
+@@ -4443,7 +4469,7 @@
+         // High-frequency image: many splits.
+         let mut noise = vec![0u8; w * h * 3];
+         for (i, p) in noise.chunks_mut(3).enumerate() {
+-            let v = (((i * 97 + (i / w) * 53) % 256) as u8) ^ ((i & 1) as u8 * 200);
++            let v = (((i * 97 + (i / w) * 53) % 256) as u8) ^ ((i & 1) as u8 * 200).unwrap();
+             p[0] = v;
+             p[1] = v.wrapping_mul(3);
+             p[2] = !v;
+@@ -4473,7 +4499,7 @@
+         assert!(
+             noise_leaves > flat_leaves,
+             "detail should split more: flat={flat_leaves} noise={noise_leaves}"
+-        );
++        ).unwrap();
+         // Flat 64x64 is a single CTU under CTU-64: one undivided 64×64 leaf.
+         assert_eq!(flat_leaves, 1, "flat image should not split");
+     }

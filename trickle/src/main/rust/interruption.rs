@@ -25,6 +25,18 @@ impl Interruption {
         let Ok(mut env) = self.vm.attach_current_thread() else {
             return false;
         };
+        self.check_thread(&mut env)
+    }
+
+    pub(crate) fn is_requested_from_worker(&self) -> bool {
+        // Rayon reuses its workers, so attach each one only once.
+        let Ok(mut env) = self.vm.attach_current_thread_as_daemon() else {
+            return false;
+        };
+        self.check_thread(&mut env)
+    }
+
+    fn check_thread(&self, env: &mut JNIEnv) -> bool {
         // The global thread reference keeps the receiver and method ID valid.
         unsafe {
             env.call_method_unchecked(

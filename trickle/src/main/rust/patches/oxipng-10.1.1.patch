@@ -1,0 +1,78 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -285,16 +285,31 @@
+ /// Perform optimization on the input file using the options provided, where the file is already
+ /// loaded in-memory
+ pub fn optimize_from_memory(data: &[u8], opts: &Options) -> PngResult<Vec<u8>> {
++    optimize_from_memory_with_cancel(data, opts, || false)
++}
++
++/// Optimize in-memory PNG data and stop scheduling trials after cancellation.
++pub fn optimize_from_memory_with_cancel(
++    data: &[u8],
++    opts: &Options,
++    cancel: impl Fn() -> bool + Send + Sync + 'static,
++) -> PngResult<Vec<u8>> {
+     // Read in the file and try to decode as PNG.
+     info!("Processing from memory");
+ 
+-    let deadline = Arc::new(Deadline::new(opts.timeout));
++    let mut deadline = Deadline::new(opts.timeout);
++    deadline.cancel = Some(Box::new(cancel));
++    let deadline = Arc::new(deadline);
+ 
+     let original_size = data.len();
+     let mut png = PngData::from_slice(data, opts)?;
+ 
+     // Run the optimizer on the decoded PNG.
+-    let optimized_output = optimize_png(&mut png, data, opts, deadline)?;
++    let optimized_output = optimize_png(&mut png, data, opts, Arc::clone(&deadline));
++    if deadline.cancelled() {
++        return Err(PngError::new("Encoding interrupted"));
++    }
++    let optimized_output = optimized_output?;
+ 
+     if is_fully_optimized(original_size, optimized_output.len(), opts) {
+         info!("Image already optimized");
+@@ -547,15 +562,22 @@
+ 
+ /// Keep track of processing timeout
+ #[doc(hidden)]
+-#[derive(Debug)]
+ pub struct Deadline {
+     imp: Option<DeadlineImp>,
++    cancel: Option<Box<dyn Fn() -> bool + Send + Sync>>,
++}
++
++impl std::fmt::Debug for Deadline {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("Deadline").field("imp", &self.imp).finish_non_exhaustive()
++    }
+ }
+ 
+ impl Deadline {
+     #[must_use]
+     pub fn new(timeout: Option<Duration>) -> Self {
+         Self {
++            cancel: None,
+             imp: timeout.map(|timeout| DeadlineImp {
+                 start: Instant::now(),
+                 timeout,
+@@ -564,10 +586,17 @@
+         }
+     }
+ 
++    fn cancelled(&self) -> bool {
++        self.cancel.as_ref().is_some_and(|check| check())
++    }
++
+     /// True if the timeout has passed, and no new work should be done.
+     ///
+     /// If the verbose option is on, it also prints a timeout message once.
+     pub fn passed(&self) -> bool {
++        if self.cancelled() {
++            return true;
++        }
+         if let Some(imp) = &self.imp {
+             let elapsed = imp.start.elapsed();
+             if elapsed > imp.timeout {

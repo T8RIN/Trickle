@@ -1,0 +1,309 @@
+--- a/src/encoder.rs
++++ b/src/encoder.rs
+@@ -310,6 +310,7 @@
+     auto_chroma_scale: bool,
+ 
+     app_segments: Vec<(u8, Vec<u8>)>,
++    cancel_check: Option<Box<dyn Fn() -> bool + Send + Sync>>,
+ 
+     #[cfg(feature = "polish")]
+     polish: crate::polish::Polish,
+@@ -380,6 +381,7 @@
+             deadzone: Deadzone::default(),
+             auto_chroma_scale: true,
+             app_segments: Vec::new(),
++            cancel_check: None,
+             #[cfg(feature = "polish")]
+             polish: crate::polish::Polish::Off,
+             #[cfg(feature = "polish")]
+@@ -387,6 +389,18 @@
+             #[cfg(feature = "polish")]
+             polish_stats: None,
+         }
++    }
++
++    /// Stop encoding when the callback returns true.
++    pub fn set_cancel_check(&mut self, check: impl Fn() -> bool + Send + Sync + 'static) {
++        self.cancel_check = Some(Box::new(check));
++    }
++
++    fn check_cancelled(&self) -> Result<(), EncodingError> {
++        if self.cancel_check.as_ref().is_some_and(|check| check()) {
++            return Err(std::io::Error::from(std::io::ErrorKind::Interrupted).into());
++        }
++        Ok(())
+     }
+ 
+     /// Set pixel density for the image
+@@ -659,6 +673,7 @@
+         height: u16,
+         color_type: ColorType,
+     ) -> Result<(), EncodingError> {
++        self.check_cancelled()?;
+         let required_data_len = width as usize * height as usize * color_type.get_bytes_per_pixel();
+ 
+         if data.len() < required_data_len {
+@@ -714,6 +729,7 @@
+ 
+     /// Encode an image
+     pub fn encode_image<I: ImageBuffer>(mut self, image: I) -> Result<(), EncodingError> {
++        self.check_cancelled()?;
+         if image.width() == 0 || image.height() == 0 {
+             return Err(EncodingError::ZeroImageDimensions {
+                 width: image.width(),
+@@ -765,6 +781,7 @@
+             self.encode_image_interleaved(image, &q_tables)?;
+         }
+ 
++        self.check_cancelled()?;
+         self.writer.write_marker(Marker::EOI)?;
+ 
+         Ok(())
+@@ -837,7 +854,7 @@
+         q_tables: &[QuantizationTable; 3],
+         blocks: &mut [Vec<AlignedBlock>; 4],
+         grids: &[BlockGrid; 4],
+-    ) {
++    ) -> Result<(), EncodingError> {
+         use crate::polish::{PlaneSpec, Polisher};
+         let options = self.polish.options().unwrap();
+         let source = self.polish_source.take().unwrap();
+@@ -865,6 +882,7 @@
+                 .map(|&t| core::array::from_fn(|z| u16::from(tables[t].get(z))))
+                 .collect()
+         };
++        self.check_cancelled()?;
+         let Some(polisher) = Polisher::new(
+             &source,
+             usize::from(image.width()),
+@@ -874,20 +892,23 @@
+             self.functions.float_dct,
+             self.functions.islow,
+         ) else {
+-            return;
++            return Ok(());
+         };
++        self.check_cancelled()?;
+         // Exchange rates from two encodes at neighboring qualities
+         let lo = self.quality.saturating_sub(options.quality_step).max(1);
+         let hi = self.quality.saturating_add(options.quality_step).min(100);
+         if lo == hi {
+-            return;
++            return Ok(());
+         }
+         let mut points = Vec::new();
+         for q in [lo, hi] {
+             let tables = self.quality_tables(q, image);
+-            let (b, _) = self.encode_blocks(image, &tables, None);
++            let (b, _) = self.encode_blocks(image, &tables, None)?;
++            self.check_cancelled()?;
+             points.push(polisher.measure(&b[..self.components.len()], &dqt(&tables)));
+         }
++        self.check_cancelled()?;
+         let span = (points[1].0 as f64 / points[0].0.max(1) as f64).ln();
+         let slope = |a: f64, b: f64| {
+             let s = (b - a) / span;
+@@ -898,10 +919,13 @@
+             slope(points[0].2, points[1].2),
+         );
+         let n = self.components.len();
+-        let stats = polisher.polish(&mut blocks[..n], &dqt(q_tables), slopes);
++        let stats = polisher.polish(&mut blocks[..n], &dqt(q_tables), slopes, || {
++            self.check_cancelled()
++        })?;
+         if let Some(sink) = &self.polish_stats {
+             *sink.lock().unwrap() = Some(stats);
+         }
++        Ok(())
+     }
+ 
+     fn init_components(&mut self, color: JpegColorType) {
+@@ -1036,10 +1060,10 @@
+         q_tables: &[QuantizationTable; 3],
+     ) -> Result<(), EncodingError> {
+         #[allow(unused_mut)]
+-        let (mut blocks, grids) = self.encode_blocks(&image, q_tables, None);
++        let (mut blocks, grids) = self.encode_blocks(&image, q_tables, None)?;
+         #[cfg(feature = "polish")]
+         if self.polish_active() {
+-            self.polish_blocks(&image, q_tables, &mut blocks, &grids);
++            self.polish_blocks(&image, q_tables, &mut blocks, &grids)?;
+         }
+         let used = self.components.len();
+         let blocks: Vec<Vec<AlignedBlock>> = blocks
+@@ -1060,6 +1084,7 @@
+             progressive::choose_scripts(&blocks, &luma, restart_interval, mode)
+         };
+ 
++        self.check_cancelled()?;
+         self.write_frame_header(&image, q_tables)?;
+         if self.arithmetic_coding {
+             return crate::arithmetic::write_scripts(
+@@ -1139,6 +1164,7 @@
+         let mut restarts_to_go = restart_interval;
+ 
+         for block_y in 0..num_rows {
++            self.check_cancelled()?;
+             for r in &mut row {
+                 r.clear();
+             }
+@@ -1244,10 +1270,10 @@
+         let count_ac = self.rdo.is_some() && !polish && !self.arithmetic_coding;
+         #[allow(unused_mut)]
+         let (mut blocks, grids) =
+-            self.encode_blocks(&image, q_tables, count_ac.then_some(&mut final_ac));
++            self.encode_blocks(&image, q_tables, count_ac.then_some(&mut final_ac))?;
+         #[cfg(feature = "polish")]
+         if polish {
+-            self.polish_blocks(&image, q_tables, &mut blocks, &grids);
++            self.polish_blocks(&image, q_tables, &mut blocks, &grids)?;
+         }
+         let orders = self.coding_orders(&grids);
+ 
+@@ -1376,6 +1402,9 @@
+         let mut prev_dc = [0i16; 4];
+ 
+         for mcu in 0..mcus {
++            if mcu % 64 == 0 {
++                self.check_cancelled()?;
++            }
+             if restart_interval > 0 && mcu > 0 && mcu.is_multiple_of(restart_interval) {
+                 self.writer.finalize_bit_buffer()?;
+                 self.writer.write_marker(Marker::RST(restarts))?;
+@@ -1404,7 +1433,7 @@
+         image: &I,
+         q_tables: &[QuantizationTable; 3],
+         final_ac: Option<&mut [[u32; 257]; 2]>,
+-    ) -> ([Vec<AlignedBlock>; 4], [BlockGrid; 4]) {
++    ) -> Result<([Vec<AlignedBlock>; 4], [BlockGrid; 4]), EncodingError> {
+         if self.sample_precision != SamplePrecision::Integer && image.supports_precise_samples() {
+             return self.encode_blocks_precise(image, q_tables, final_ac);
+         }
+@@ -1449,6 +1478,7 @@
+             blocks[i].reserve_exact(grids[i].padded_cols * grids[i].padded_rows);
+         }
+         for mcu_y in 0..mcu_rows {
++            self.check_cancelled()?;
+             for channel in &mut row {
+                 channel.clear();
+             }
+@@ -1513,9 +1543,9 @@
+         }
+ 
+         if let Some(rdo) = self.rdo {
+-            self.rdo_quantize(&mut blocks, q_tables, &rdo, &activities, &grids, final_ac);
+-        }
+-        (blocks, grids)
++            self.rdo_quantize(&mut blocks, q_tables, &rdo, &activities, &grids, final_ac)?;
++        }
++        Ok((blocks, grids))
+     }
+ 
+     /// Convert precise RGB-family planes, retaining Q2 coefficients until
+@@ -1525,7 +1555,7 @@
+         image: &I,
+         q_tables: &[QuantizationTable; 3],
+         mut final_ac: Option<&mut [[u32; 257]; 2]>,
+-    ) -> ([Vec<AlignedBlock>; 4], [BlockGrid; 4]) {
++    ) -> Result<([Vec<AlignedBlock>; 4], [BlockGrid; 4]), EncodingError> {
+         let width = usize::from(image.width());
+         let height = usize::from(image.height());
+         let (max_h, max_v) = self.get_max_sampling_size();
+@@ -1576,6 +1606,7 @@
+             );
+         }
+         for mcu_y in 0..mcu_rows {
++            self.check_cancelled()?;
+             for plane in &mut planes {
+                 plane.clear();
+             }
+@@ -1713,7 +1744,7 @@
+                 }
+             }
+         }
+-        (output, grids)
++        Ok((output, grids))
+     }
+ 
+     /// Whether chroma is coded at luma resolution (4:4:4)
+@@ -1758,7 +1789,7 @@
+         activities: &[Vec<f32>; 4],
+         grids: &[BlockGrid; 4],
+         mut final_ac: Option<&mut [[u32; 257]; 2]>,
+-    ) {
++    ) -> Result<(), EncodingError> {
+         let frequencies = self.rdo_ac_frequencies(blocks, q_tables);
+         let max_tables = self.components.len().min(2);
+         let prices: Vec<AcPrices> = frequencies[..max_tables]
+@@ -1792,6 +1823,9 @@
+             };
+ 
+             for (b, block) in blocks[i].iter_mut().enumerate() {
++                if b % 64 == 0 {
++                    self.check_cancelled()?;
++                }
+                 let scale = lambda_scales.as_ref().map_or(1.0, |s| s[b]);
+                 let coded = self.sampling_factor.supports_interleaved()
+                     || (b / grids[i].padded_cols < grids[i].rows
+@@ -1803,6 +1837,7 @@
+                 *block = rdoq_block(block, table, prices, rdo, &weights, scale, counts);
+             }
+         }
++        Ok(())
+     }
+ 
+     /// Count initial AC symbols with one scratch block, without storing a
+--- a/src/polish.rs
++++ b/src/polish.rs
+@@ -14,6 +14,7 @@
+ 
+ use crate::dct_f32::Transforms;
+ use crate::encoder::AlignedBlock;
++use crate::EncodingError;
+ use crate::huffman::HuffmanTable;
+ use crate::writer::ZIGZAG;
+ use alloc::vec;
+@@ -988,7 +989,9 @@
+         blocks: &mut [Vec<AlignedBlock>],
+         tables: &[[u16; 64]],
+         slopes: (f64, f64),
+-    ) -> PolishStats {
++        check_cancelled: impl Fn() -> Result<(), EncodingError>,
++    ) -> Result<PolishStats, EncodingError> {
++        check_cancelled()?;
+         let o = self.options;
+         // Both references price the calibration encodes. Once their slopes are
+         // known, release the reference that is unused by a single-metric judge.
+@@ -1005,6 +1008,7 @@
+             tables,
+             self.islow,
+         );
++        check_cancelled()?;
+         let (_, ac_len, total_bits) = self.lengths(blocks);
+         let use_ss2 = o.judge != PolishJudge::Cvvdp;
+         let use_cv = o.judge != PolishJudge::Ssimulacra2;
+@@ -1017,6 +1021,7 @@
+                 .incremental(self.rgb_ss2(&frame.rgb))
+                 .expect("ssimulacra2 state")
+         });
++        check_cancelled()?;
+         let cv = use_cv.then(|| {
+             cvvdp_lite::IncrementalState::new(self.cvvdp.as_ref().unwrap(), self.rgb_cv(&frame.rgb))
+                 .expect("cvvdp state")
+@@ -1052,6 +1057,7 @@
+                 .iter_mut()
+                 .enumerate()
+             {
++                check_cancelled()?;
+                 if !self.visible(c, b) {
+                     continue;
+                 }
+@@ -1181,7 +1187,7 @@
+         }
+         stats.ss2_after = state.ss2.as_ref().map_or(f64::NAN, |s| s.score());
+         stats.jod_after = state.cv.as_ref().map_or(f64::NAN, |s| s.score().jod);
+-        stats
++        Ok(stats)
+     }
+ }
+ 

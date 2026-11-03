@@ -1,3 +1,9 @@
+#[path = "../../interruption.rs"]
+mod interruption;
+
+use interruption::Interruption;
+use std::sync::Arc;
+
 #[link(name = "jnigraphics")]
 unsafe extern "C" {}
 
@@ -250,7 +256,11 @@ fn enum_chroma_demodulation(value: jint) -> ChromaDemodulationFilter {
     }
 }
 
-unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<BitmapBuffer, String> {
+unsafe fn read_bitmap(
+    env: &mut JNIEnv,
+    bitmap: &JObject,
+    interruption: &Interruption,
+) -> Result<BitmapBuffer, String> {
     let raw_env = env.get_raw();
     let raw_bitmap = bitmap.as_raw();
     let mut info = AndroidBitmapInfo {
@@ -282,6 +292,10 @@ unsafe fn read_bitmap(env: &mut JNIEnv, bitmap: &JObject) -> Result<BitmapBuffer
     let mut alpha = vec![255u8; width * height];
 
     for y in 0..height {
+        if interruption.is_requested() {
+            unsafe { AndroidBitmap_unlockPixels(raw_env, raw_bitmap) };
+            return Err("NTSC processing interrupted".into());
+        }
         let src_row = unsafe { std::slice::from_raw_parts(src.add(y * stride), row_bytes) };
         let dst_offset = y * row_bytes;
         pixels[dst_offset..dst_offset + row_bytes].copy_from_slice(src_row);
@@ -345,6 +359,7 @@ unsafe fn write_bitmap(
     width: u32,
     height: u32,
     pixels: &[u8],
+    interruption: &Interruption,
 ) -> Result<(), String> {
     let raw_env = env.get_raw();
     let raw_bitmap = bitmap.as_raw();
@@ -375,6 +390,10 @@ unsafe fn write_bitmap(
     let stride = info.stride as usize;
     let dst = pixels_ptr as *mut u8;
     for y in 0..height as usize {
+        if interruption.is_requested() {
+            unsafe { AndroidBitmap_unlockPixels(raw_env, raw_bitmap) };
+            return Err("NTSC processing interrupted".into());
+        }
         let dst_row = unsafe { std::slice::from_raw_parts_mut(dst.add(y * stride), row_bytes) };
         let src_offset = y * row_bytes;
         dst_row.copy_from_slice(&pixels[src_offset..src_offset + row_bytes]);
@@ -406,10 +425,24 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
     float_settings: JFloatArray,
     boolean_settings: JBooleanArray,
 ) -> jobject {
-    let mut buffer = match unsafe { read_bitmap(&mut env, &bitmap) } {
+    let interruption = match Interruption::new(&mut env) {
+        Ok(check) => Arc::new(check),
+        Err(error) => {
+            if !env.exception_check().unwrap_or(true) {
+                throw(&mut env, &error.to_string());
+            }
+            return std::ptr::null_mut();
+        }
+    };
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
+    let mut buffer = match unsafe { read_bitmap(&mut env, &bitmap, &interruption) } {
         Ok(buffer) => buffer,
         Err(error) => {
-            throw(&mut env, &error);
+            if !interruption.throw(&mut env) {
+                throw(&mut env, &error);
+            }
             return std::ptr::null_mut();
         }
     };
@@ -565,13 +598,20 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
         positive_scale(scale_factor_y),
     ];
     let process_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        effect.apply_effect_to_buffer::<Rgbx, u8>(
-            dimensions,
-            &mut buffer.pixels,
-            frame_num,
-            scale_factor,
+        let check = Arc::clone(&interruption);
+        ntsc_rs::with_cancel_check(
+            move || check.is_requested_from_worker(),
+            || effect.apply_effect_to_buffer::<Rgbx, u8>(
+                dimensions,
+                &mut buffer.pixels,
+                frame_num,
+                scale_factor,
+            ),
         );
     }));
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
     if process_result.is_err() {
         throw(&mut env, "ntsc-rs processing failed");
         return std::ptr::null_mut();
@@ -593,11 +633,17 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_pipeline_EffectsPipelineImp
             buffer.width,
             buffer.height,
             &buffer.pixels,
+            &interruption,
         )
     } {
-        throw(&mut env, &error);
+        if !interruption.throw(&mut env) {
+            throw(&mut env, &error);
+        }
         return std::ptr::null_mut();
     }
 
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
     output.into_raw()
 }
