@@ -38,6 +38,7 @@ void GammaCorrectionFilter::initGammaTable() {
 
 int *GammaCorrectionFilter::procImage() {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color color(pixels[i]);
         int r = gammaTable[color.R()];
         int g = gammaTable[color.G()];

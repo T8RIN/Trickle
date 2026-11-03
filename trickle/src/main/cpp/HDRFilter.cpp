@@ -20,6 +20,7 @@ int *HDRFilter::procImage() {
     double newR = 0, newG = 0, newB = 0;
     double blurA = 0;
     for (int row = 0; row < height; row++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int col = 0; col < width; col++) {
             int index = row * width + col;
             if (index < width * height) {

@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 //
 // Created by malik on 07.08.2024.
 //
@@ -44,6 +45,7 @@ Patch findBestPatch(uint32_t *srcPixels, int srcWidth, int srcHeight,
                     int srcX, int srcY, int patchSize) {
     Patch bestPatch = {0, 0, std::numeric_limits<float>::max()};
     for (int texY = 0; texY <= texHeight - patchSize; ++texY) {
+        if (EncodingInterruption::currentRequested()) return bestPatch;
         for (int texX = 0; texX <= texWidth - patchSize; ++texX) {
             float error = calculatePatchError(srcPixels, srcWidth, srcHeight,
                                               texPixels, texWidth, texHeight,
@@ -70,6 +72,7 @@ void imageQuiltingForTextureTransfer(AndroidBitmapInfo *infoTexture, uint32_t *p
             Patch bestPatch = findBestPatch(pixelsSource, width, height,
                                             pixelsTexture, infoTexture->width, infoTexture->height,
                                             x, y, patchSize);
+            if (EncodingInterruption::currentRequested()) return;
 
             for (int j = 0; j < patchSize; ++j) {
                 for (int i = 0; i < patchSize; ++i) {
@@ -92,6 +95,8 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferTextureImpl(JNIEnv *
                                                                         jobject sourceBitmap,
                                                                         jint overlap,
                                                                         jint patchSize) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo infoTexture;
     AndroidBitmapInfo infoSource;
     uint32_t *pixelsTexture;
@@ -123,6 +128,11 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferTextureImpl(JNIEnv *
     AndroidBitmap_unlockPixels(env, textureBitmap);
     AndroidBitmap_unlockPixels(env, sourceBitmap);
 
+    if (interruption.throwIfRequested()) {
+        delete[] pixelsResult;
+        return nullptr;
+    }
+
     jobject resultBitmap = createBitmap(env, infoSource.width, infoSource.height);
 
     uint32_t *pixelsResultBitmap;
@@ -132,6 +142,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferTextureImpl(JNIEnv *
     }
 
     for (int y = 0; y < infoSource.height; ++y) {
+        if (interruption.requested()) break;
         for (int x = 0; x < infoSource.width; ++x) {
             pixelsResultBitmap[y * infoSource.width + x] = pixelsResult[y * infoSource.width + x];
         }
@@ -140,5 +151,5 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferTextureImpl(JNIEnv *
     AndroidBitmap_unlockPixels(env, resultBitmap);
     delete[] pixelsResult;
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }

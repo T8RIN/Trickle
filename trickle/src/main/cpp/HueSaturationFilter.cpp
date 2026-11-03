@@ -23,6 +23,7 @@ HueSaturationFilter::~HueSaturationFilter() {
 
 void HueSaturationFilter::initPixelsHSI() {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color color(pixels[i]);
         HSI hsi = ColorTranslator::RGB2HSI(color.R(), color.G(), color.B());
         pixelsHSI[i] = hsi;
@@ -35,6 +36,7 @@ int *HueSaturationFilter::procImage() {
 
 int *HueSaturationFilter::setHue(double hue) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         HSI hsi = pixelsHSI[i];
         double h = hsi.h;
         h = hue;
@@ -55,6 +57,7 @@ int *HueSaturationFilter::setHue(double hue) {
 
 int *HueSaturationFilter::setSaturation(double saturation) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         HSI hsi = pixelsHSI[i];
         double s = hsi.s;
         s = saturation;
@@ -70,6 +73,7 @@ int *HueSaturationFilter::setSaturation(double saturation) {
 
 int *HueSaturationFilter::setHueSaturation(double hue, double saturation) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         HSI hsi = pixelsHSI[i];
         double h = hsi.h;
         h = hue;
@@ -93,6 +97,7 @@ int *HueSaturationFilter::setHueSaturation(double hue, double saturation) {
 int *
 HueSaturationFilter::setHueSaturationIntesity(double hue, double saturation, double intensity) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         HSI hsi = pixelsHSI[i];
         double h = hsi.h;
         h = hue;

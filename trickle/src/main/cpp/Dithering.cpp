@@ -13,6 +13,7 @@
 #include <string>
 #include "ColorUtils.h"
 #include "BitmapUtils.h"
+#include "EncodingInterruption.h"
 #include <vector>
 
 extern "C"
@@ -22,6 +23,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered2By2BayerImpl(JNIEn
                                                                            jobject input,
                                                                            jint threshold,
                                                                            jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -54,6 +57,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered2By2BayerImpl(JNIEn
                         {4, 2}};
 
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
 
@@ -114,7 +118,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered2By2BayerImpl(JNIEn
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -123,6 +127,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered3By3BayerImpl(JNIEn
                                                                            jobject input,
                                                                            jint threshold,
                                                                            jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -156,6 +162,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered3By3BayerImpl(JNIEn
                         {2, 8, 5}};
 
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
 
@@ -216,7 +223,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered3By3BayerImpl(JNIEn
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -225,6 +232,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered4By4BayerImpl(JNIEn
                                                                            jobject input,
                                                                            jint threshold,
                                                                            jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -259,6 +268,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered4By4BayerImpl(JNIEn
                         {16, 8,  14, 6}};
 
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
 
@@ -319,7 +329,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered4By4BayerImpl(JNIEn
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -328,6 +338,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered8By8BayerImpl(JNIEn
                                                                            jobject input,
                                                                            jint threshold,
                                                                            jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -366,6 +378,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered8By8BayerImpl(JNIEn
                         {43, 27, 39, 23, 42, 26, 38, 22}};
 
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
 
@@ -426,7 +439,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ordered8By8BayerImpl(JNIEn
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -434,6 +447,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_floydSteinbergImpl(JNIEnv 
                                                                          jobject input,
                                                                          jint threshold,
                                                                          jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -466,6 +481,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_floydSteinbergImpl(JNIEnv 
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 1; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(resultPixels) +
@@ -556,7 +572,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_floydSteinbergImpl(JNIEnv 
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -565,6 +581,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_jarvisJudiceNinkeImpl(JNIE
                                                                             jobject input,
                                                                             jint threshold,
                                                                             jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -597,6 +615,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_jarvisJudiceNinkeImpl(JNIE
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 2; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(resultPixels) +
@@ -719,13 +738,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_jarvisJudiceNinkeImpl(JNIE
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_sierraImpl(JNIEnv *env, jobject thiz,
                                                                  jobject input, jint threshold,
                                                                  jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -758,6 +779,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_sierraImpl(JNIEnv *env, jo
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 2; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -866,7 +888,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_sierraImpl(JNIEnv *env, jo
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -874,6 +896,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_twoRowSierraImpl(JNIEnv *e
                                                                        jobject input,
                                                                        jint threshold,
                                                                        jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -906,6 +930,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_twoRowSierraImpl(JNIEnv *e
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 1; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1002,13 +1027,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_twoRowSierraImpl(JNIEnv *e
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_sierraLiteImpl(JNIEnv *env, jobject thiz,
                                                                      jobject input, jint threshold,
                                                                      jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1041,6 +1068,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_sierraLiteImpl(JNIEnv *env
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 1; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1137,13 +1165,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_sierraLiteImpl(JNIEnv *env
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_atkinsonImpl(JNIEnv *env, jobject thiz,
                                                                    jobject input, jint threshold,
                                                                    jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1176,6 +1206,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_atkinsonImpl(JNIEnv *env, 
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 2; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1268,13 +1299,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_atkinsonImpl(JNIEnv *env, 
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_stuckiImpl(JNIEnv *env, jobject thiz,
                                                                  jobject input, jint threshold,
                                                                  jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1307,6 +1340,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_stuckiImpl(JNIEnv *env, jo
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 2; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1423,13 +1457,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_stuckiImpl(JNIEnv *env, jo
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_burkesImpl(JNIEnv *env, jobject thiz,
                                                                  jobject input, jint threshold,
                                                                  jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1462,6 +1498,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_burkesImpl(JNIEnv *env, jo
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 1; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1558,7 +1595,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_burkesImpl(JNIEnv *env, jo
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -1567,6 +1604,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_falseFloydSteinbergImpl(JN
                                                                               jobject input,
                                                                               jint threshold,
                                                                               jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1599,6 +1638,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_falseFloydSteinbergImpl(JN
     std::vector<std::vector<int>> blueErrors(width, std::vector<int>(height, 0));
 
     for (uint32_t y = 0; y < height - 1; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1679,12 +1719,14 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_falseFloydSteinbergImpl(JN
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleLeftToRightErrorDiffusionImpl(
         JNIEnv *env, jobject thiz, jobject input, jint threshold, jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1712,6 +1754,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleLeftToRightErrorDiff
     }
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1793,13 +1836,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleLeftToRightErrorDiff
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_randomImpl(JNIEnv *env, jobject thiz,
                                                                  jobject input,
                                                                  jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1829,6 +1874,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_randomImpl(JNIEnv *env, jo
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1868,7 +1914,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_randomImpl(JNIEnv *env, jo
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -1876,6 +1922,8 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleThresholdImpl(JNIEnv
                                                                           jobject input,
                                                                           jint threshold,
                                                                           jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -1903,6 +1951,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleThresholdImpl(JNIEnv
     }
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -1940,7 +1989,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_simpleThresholdImpl(JNIEnv
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 
 
@@ -1948,6 +1997,8 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered2x2DitheringImpl(
         JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     static const int thresholdMatrix[2][2] = {
             {0, 2},
             {3, 1}
@@ -1980,6 +2031,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered2x2DitheringImpl(
     }
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -2018,13 +2070,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered2x2DitheringImpl(
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered4x4DitheringImpl(
         JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     static const int thresholdMatrix[4][4] = {
             {0,  8,  2,  10},
             {12, 4,  14, 6},
@@ -2059,6 +2113,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered4x4DitheringImpl(
     }
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -2097,13 +2152,15 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered4x4DitheringImpl(
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered8x8DitheringImpl(
         JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     static const int thresholdMatrix[8][8] = {
             {0,  48, 12, 60, 3,  51, 15, 63},
             {32, 16, 44, 28, 35, 19, 47, 31},
@@ -2142,6 +2199,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered8x8DitheringImpl(
     }
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -2180,7 +2238,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_clustered8x8DitheringImpl(
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }
 
 
@@ -2188,6 +2246,8 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ylilomaDitheringImpl(
         JNIEnv *env, jobject thiz, jobject input, jboolean is_gray_scale) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     static const int ylilomaMatrix[4][4] = {
             {1,  9,  3,  11},
             {13, 5,  15, 7},
@@ -2222,6 +2282,7 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ylilomaDitheringImpl(
     }
 
     for (uint32_t y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
         auto dst = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(outputPixels) +
@@ -2260,5 +2321,5 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ylilomaDitheringImpl(
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, outputBitmap);
 
-    return outputBitmap;
+    return interruption.throwIfRequested() ? nullptr : outputBitmap;
 }

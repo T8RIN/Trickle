@@ -50,6 +50,7 @@ int *MotionBlurFilter::procImage() {
     memcpy(originPixels, pixels, width * height * sizeof(int));
 
     for (int y = 0; y < height - DELAY; y++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int x = 0; x < width - DELAY; x++) {
             for (int t = 0; t < DELAY; t++) {
                 Color color(originPixels[(y + t) * width + x + t]);

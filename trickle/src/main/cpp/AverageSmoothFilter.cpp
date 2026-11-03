@@ -28,6 +28,7 @@ int *AverageSmoothFilter::procImage() {
     int halfMaskSize = maskSize / 2;
 
     for (int row = halfMaskSize; row < height - halfMaskSize; row++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int col = halfMaskSize; col < width - halfMaskSize; col++) {
             sumR = sumG = sumB = 0;
             for (int m = -halfMaskSize; m <= halfMaskSize; m++) {

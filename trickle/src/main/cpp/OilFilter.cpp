@@ -27,6 +27,7 @@ int *OilFilter::procImage() {
     int rHis[OIL_FILTER_LEVEL], gHis[OIL_FILTER_LEVEL], bHis[OIL_FILTER_LEVEL];
 
     for (int y = 0; y < height; y++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int x = 0; x < width; x++) {
             memset(rHis, 0, OIL_FILTER_LEVEL * sizeof(int));
             memset(gHis, 0, OIL_FILTER_LEVEL * sizeof(int));

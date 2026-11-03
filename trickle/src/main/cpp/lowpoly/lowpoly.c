@@ -36,7 +36,7 @@ bool call(int magnitude, int x, int y);
 
 ///////////////////
 
-int threshold = 40;
+static _Thread_local int threshold = 40;
 
 /**
  * pixels: colors are non-premultiplied ARGB values in the sRGB color space.
@@ -55,11 +55,17 @@ int threshold = 40;
 void get_triangles(const int *pixels, int size, int w, int h, int thre, float alpha,
                    int *result, int *size_result, unsigned char lowpoly) {
     threshold = thre;
+    *size_result = 0;
 
     Point *collectors = (Point *) malloc((size / 2 + 1) * sizeof(Point));
     int size_collectors = 0;
 
     sobel(pixels, w, h, &call, collectors, &size_collectors);
+
+    if (lowpoly_interrupted()) {
+        free(collectors);
+        return;
+    }
 
     Point *vertices = (Point *) malloc((size_collectors + 4) * sizeof(Point));
     int size_vertices = 0;
@@ -71,6 +77,10 @@ void get_triangles(const int *pixels, int size, int w, int h, int thre, float al
     if (alpha > 1.0f) {
         dedup(vertices, &size_vertices);
     }
+    if (lowpoly_interrupted()) {
+        free(vertices);
+        return;
+    }
     if (lowpoly) {
         PNode *triangles = (PNode *) malloc(sizeof(PNode));
         triangles->index = -1;
@@ -79,24 +89,23 @@ void get_triangles(const int *pixels, int size, int w, int h, int thre, float al
         triangulate(vertices, size_vertices, w, h, triangles);
 
         *size_result = 0;
-        for (PNode *p = triangles->next; p != NULL;) {
+        for (PNode *p = triangles->next; p != NULL && *size_result + 1 < size;) {
             Point *pi = &(vertices[p->index]);
             result[(*size_result)++] = pi->x;
             result[(*size_result)++] = pi->y;
             p = p->next;
         }
-        free(vertices);
-
         pnode_free(triangles);
         free(triangles);
         triangles = NULL;
     } else {
-        for (int i = 0; i < size_vertices; i++) {
+        for (int i = 0; i < size_vertices && *size_result + 1 < size; i++) {
             Point *pi = &(vertices[i]);
             result[(*size_result)++] = pi->x;
             result[(*size_result)++] = pi->y;
         }
     }
+    free(vertices);
 }
 
 bool call(int magnitude, int x, int y) {

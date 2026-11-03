@@ -18,6 +18,7 @@ int *BrightContrastFilter::procImage() {
 
 int *BrightContrastFilter::setBrightness(double brightness) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color color(pixels[i]);
         int r = color.R() + brightness;
         int g = color.G() + brightness;
@@ -35,6 +36,7 @@ int *BrightContrastFilter::setBrightness(double brightness) {
 
 int *BrightContrastFilter::setContrast(double contrast) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color color(pixels[i]);
         int r = 128 + (color.R() - 128) * contrast;
         int g = 128 + (color.G() - 128) * contrast;

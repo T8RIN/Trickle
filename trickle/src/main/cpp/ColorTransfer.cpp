@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 //
 // Created by malik on 17.07.2024.
 //
@@ -20,6 +21,7 @@ calculateMeanAndStdLAB(JNIEnv *env, void *pixels, int width, int height, int str
     int pixelCount = width * height;
 
     for (int y = 0; y < height; ++y) {
+        if (EncodingInterruption::currentRequested()) return;
         auto pixelsComp = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(pixels) +
                                                       y * stride);
         int x = 0;
@@ -44,6 +46,7 @@ calculateMeanAndStdLAB(JNIEnv *env, void *pixels, int width, int height, int str
     mean[2] /= pixelCount;
 
     for (int y = 0; y < height; ++y) {
+        if (EncodingInterruption::currentRequested()) return;
         auto pixelsComp = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(pixels) +
                                                       y * stride);
         int x = 0;
@@ -72,6 +75,8 @@ extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferPaletteImpl(
         JNIEnv *env, jobject obj, jobject sourceBitmap, jobject targetBitmap, jfloat intensity) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
 
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
@@ -128,6 +133,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferPaletteImpl(
     }
 
     for (int y = 0; y < targetHeight; ++y) {
+        if (interruption.requested()) break;
         auto pixelsComp = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(targetPixels) +
                                                       y * targetInfo.stride);
 
@@ -172,5 +178,5 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_transferPaletteImpl(
     AndroidBitmap_unlockPixels(env, targetBitmap);
     AndroidBitmap_unlockPixels(env, result);
 
-    return result;
+    return interruption.throwIfRequested() ? nullptr : result;
 }

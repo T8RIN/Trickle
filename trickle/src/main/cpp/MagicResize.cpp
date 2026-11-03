@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 #include <android/bitmap.h>
 #include <algorithm>
 #include <cmath>
@@ -87,6 +88,7 @@ Contributions buildContributions(int sourceSize, int targetSize, MagicResizeType
     const int footprint = static_cast<int>(std::ceil(radius * scale));
 
     for (int target = 0; target < targetSize; ++target) {
+        if (EncodingInterruption::currentRequested()) return {};
         const double sourcePosition = (target + 0.5) * ratio - 0.5;
         const int sourceCenter = static_cast<int>(std::floor(sourcePosition));
         const double fraction = sourcePosition - sourceCenter;
@@ -168,6 +170,8 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
     jint targetHeight,
     jint typeValue
 ) {
+    const EncodingInterruption interruption(env, true);
+    if (interruption.throwIfRequested()) return nullptr;
     if (targetWidth <= 0 || targetHeight <= 0 || typeValue < 0 || typeValue > 2) return nullptr;
 
     AndroidBitmapInfo sourceInfo;
@@ -183,6 +187,7 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
         return nullptr;
     }
 
+    struct ResizeInterrupted {};
     jobject output = nullptr;
     try {
         const int sourceWidth = static_cast<int>(sourceInfo.width);
@@ -191,6 +196,7 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
         std::vector<Pixel> source(static_cast<size_t>(sourceWidth) * sourceHeight);
 
         for (int y = 0; y < sourceHeight; ++y) {
+            if (interruption.requested()) throw ResizeInterrupted{};
             const auto *row = static_cast<const uint8_t *>(sourcePixelsRaw) +
                 static_cast<size_t>(y) * sourceInfo.stride;
             for (int x = 0; x < sourceWidth; ++x) {
@@ -207,10 +213,13 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
 
         const Contributions horizontalWeights = buildContributions(sourceWidth, targetWidth, type);
         const Contributions verticalWeights = buildContributions(sourceHeight, targetHeight, type);
+        if (interruption.requested()) throw ResizeInterrupted{};
         std::vector<Pixel> horizontal(static_cast<size_t>(targetWidth) * sourceHeight);
 
         parallelFor(sourceHeight, [&](int from, int to) {
+            const EncodingInterruption::Worker worker(interruption);
             for (int y = from; y < to; ++y) {
+                if (worker.requested()) return;
                 const Pixel *sourceRow = source.data() + static_cast<size_t>(y) * sourceWidth;
                 Pixel *targetRow = horizontal.data() + static_cast<size_t>(y) * targetWidth;
                 for (int x = 0; x < targetWidth; ++x) {
@@ -219,6 +228,7 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
             }
         });
 
+        if (interruption.requested()) throw ResizeInterrupted{};
         output = createBitmap(env, static_cast<uint32_t>(targetWidth), static_cast<uint32_t>(targetHeight));
         if (output != nullptr && !env->ExceptionCheck()) {
             AndroidBitmapInfo outputInfo;
@@ -226,7 +236,9 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
             if (AndroidBitmap_getInfo(env, output, &outputInfo) == ANDROID_BITMAP_RESULT_SUCCESS &&
                 AndroidBitmap_lockPixels(env, output, &outputPixelsRaw) == ANDROID_BITMAP_RESULT_SUCCESS) {
                 parallelFor(targetHeight, [&](int from, int to) {
+                    const EncodingInterruption::Worker worker(interruption);
                     for (int y = from; y < to; ++y) {
+                        if (worker.requested()) return;
                         auto *row = static_cast<uint8_t *>(outputPixelsRaw) +
                             static_cast<size_t>(y) * outputInfo.stride;
                         const auto &weights = verticalWeights[static_cast<size_t>(y)];
@@ -257,10 +269,12 @@ Java_com_t8rin_trickle_pipeline_ResizePipelineImpl_magicResizeImpl(
                 output = nullptr;
             }
         }
+    } catch (const ResizeInterrupted &) {
+        output = nullptr;
     } catch (const std::bad_alloc &) {
         output = nullptr;
     }
 
     AndroidBitmap_unlockPixels(env, input);
-    return output;
+    return interruption.throwIfRequested() ? nullptr : output;
 }

@@ -234,7 +234,7 @@ fn sample(data: &[u8], index: usize, bytes_per_sample: usize) -> u16 {
     }
 }
 
-fn decoded_rgba(image: &DecodedImage) -> Vec<u8> {
+fn decoded_rgba(image: &DecodedImage, interruption: &Interruption) -> Result<Vec<u8>, String> {
     let width = image.width as usize;
     let height = image.height as usize;
     let bytes_per_sample = if image.bit_depth == BitDepth::Eight {
@@ -249,6 +249,9 @@ fn decoded_rgba(image: &DecodedImage) -> Vec<u8> {
 
     if image.chroma == ChromaFormat::Monochrome {
         for index in 0..width * height {
+            if index & 1023 == 0 {
+                interruption.check()?;
+            }
             let value =
                 (sample(&image.planes[..y_len], index, bytes_per_sample) as i32 * 255 / max) as u8;
             let dst = index * 4;
@@ -259,7 +262,7 @@ fn decoded_rgba(image: &DecodedImage) -> Vec<u8> {
                 })
                 .unwrap_or(255);
         }
-        return rgba;
+        return Ok(rgba);
     }
 
     let sub_w = image.chroma.sub_w();
@@ -272,6 +275,7 @@ fn decoded_rgba(image: &DecodedImage) -> Vec<u8> {
     let neutral = 1i32 << (image.bit_depth.bits() - 1);
 
     for y in 0..height {
+        interruption.check()?;
         for x in 0..width {
             let index = y * width + x;
             let chroma_index = (y / sub_h) * chroma_width + x / sub_w;
@@ -292,7 +296,7 @@ fn decoded_rgba(image: &DecodedImage) -> Vec<u8> {
                 .unwrap_or(255);
         }
     }
-    rgba
+    Ok(rgba)
 }
 
 fn oriented_rgba(
@@ -300,6 +304,7 @@ fn oriented_rgba(
     width: u32,
     height: u32,
     orientation: Orientation,
+    interruption: &Interruption,
 ) -> (Vec<u8>, u32, u32) {
     if orientation == Orientation::Normal {
         return (rgba, width, height);
@@ -320,6 +325,9 @@ fn oriented_rgba(
     let mut output = vec![0u8; rgba.len()];
 
     for y in 0..output_height {
+        if interruption.is_requested() {
+            break;
+        }
         for x in 0..output_width {
             let (source_x, source_y) = match orientation {
                 Orientation::Normal => (x, y),
@@ -372,6 +380,7 @@ fn sampled_rgba(
     requested_width: u32,
     requested_height: u32,
     scale_mode: jint,
+    interruption: Option<&Interruption>,
 ) -> (Vec<u8>, u32, u32) {
     if requested_width == 0 || requested_height == 0 {
         return (rgba, width, height);
@@ -406,6 +415,9 @@ fn sampled_rgba(
 
     let mut output = vec![0u8; output_width as usize * output_height as usize * 4];
     for y in 0..output_height {
+        if interruption.is_some_and(Interruption::is_requested) {
+            break;
+        }
         for x in 0..output_width {
             let source_x = crop_x + (x as f32 + 0.5) / scale - 0.5;
             let source_y = crop_y + (y as f32 + 0.5) / scale - 0.5;
@@ -422,6 +434,7 @@ unsafe fn create_bitmap(
     rgba: &[u8],
     width: u32,
     height: u32,
+    interruption: &Interruption,
 ) -> Result<jobject, String> {
     let config = env
         .get_static_field(
@@ -464,6 +477,10 @@ unsafe fn create_bitmap(
     }
     let row_bytes = width as usize * 4;
     for y in 0..height as usize {
+        if interruption.is_requested() {
+            unsafe { AndroidBitmap_unlockPixels(raw_env, raw_bitmap) };
+            return Err("VVC decoding interrupted".into());
+        }
         unsafe {
             std::ptr::copy_nonoverlapping(
                 rgba.as_ptr().add(y * row_bytes),
@@ -597,22 +614,33 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcDecoder_decodeNative(
     scale_mode: jint,
     apply_orientation: jboolean,
 ) -> jobject {
+    let interruption = match Interruption::new(&mut env) {
+        Ok(check) => Arc::new(check),
+        Err(_) => return std::ptr::null_mut(),
+    };
     let result = (|| -> Result<jobject, String> {
+        interruption.check()?;
         let encoded = env
             .convert_byte_array(&encoded)
             .map_err(|e| e.to_string())?;
-        let image = if container == RAW_VVC {
-            decode_266(&encoded)
-        } else {
-            decode(&normalize_heif_for_garnetash(encoded))
-        }
+        let check = Arc::clone(&interruption);
+        let image = garnetash::with_cancel_check(
+            move || check.is_requested(),
+            || if container == RAW_VVC {
+                decode_266(&encoded)
+            } else {
+                decode(&normalize_heif_for_garnetash(encoded))
+            },
+        )
         .map_err(|e| format!("VVC decode failed: {e}"))?;
-        let rgba = decoded_rgba(&image);
+        interruption.check()?;
+        let rgba = decoded_rgba(&image, &interruption)?;
         let (rgba, width, height) = if jbool(apply_orientation) {
-            oriented_rgba(rgba, image.width, image.height, image.orientation)
+            oriented_rgba(rgba, image.width, image.height, image.orientation, &interruption)
         } else {
             (rgba, image.width, image.height)
         };
+        interruption.check()?;
         let (rgba, width, height) = sampled_rgba(
             rgba,
             width,
@@ -620,10 +648,15 @@ pub unsafe extern "system" fn Java_com_t8rin_trickle_VvcDecoder_decodeNative(
             scaled_width.max(0) as u32,
             scaled_height.max(0) as u32,
             scale_mode,
+            Some(&interruption),
         );
-        unsafe { create_bitmap(&mut env, &rgba, width, height) }
+        interruption.check()?;
+        unsafe { create_bitmap(&mut env, &rgba, width, height, &interruption) }
     })();
 
+    if interruption.throw(&mut env) {
+        return std::ptr::null_mut();
+    }
     match result {
         Ok(bitmap) => bitmap,
         Err(error) => {
@@ -719,8 +752,8 @@ mod tests {
     #[test]
     fn sampled_fit_and_fill_have_expected_dimensions() {
         let source = rgba(8, 4, u8::MAX);
-        let (_, fit_width, fit_height) = sampled_rgba(source.clone(), 8, 4, 4, 4, 0);
-        let (_, fill_width, fill_height) = sampled_rgba(source, 8, 4, 4, 4, SCALE_MODE_FILL);
+        let (_, fit_width, fit_height) = sampled_rgba(source.clone(), 8, 4, 4, 4, 0, None);
+        let (_, fill_width, fill_height) = sampled_rgba(source, 8, 4, 4, 4, SCALE_MODE_FILL, None);
 
         assert_eq!((fit_width, fit_height), (4, 2));
         assert_eq!((fill_width, fill_height), (4, 4));

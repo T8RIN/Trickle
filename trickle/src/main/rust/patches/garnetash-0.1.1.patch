@@ -522,3 +522,36 @@
          // Flat 64x64 is a single CTU under CTU-64: one undivided 64×64 leaf.
          assert_eq!(flat_leaves, 1, "flat image should not split");
      }
+--- a/src/decode.rs
++++ b/src/decode.rs
+@@ -304,0 +305,2 @@
++    let cancel = crate::current_cancel_check();
++    crate::check_cancelled(cancel.as_ref())?;
+@@ -1249,0 +1252 @@
++    crate::check_cancelled(cancel.as_ref())?;
+@@ -1287,0 +1291 @@
++        crate::check_cancelled(cancel.as_ref())?;
+@@ -1293,0 +1298 @@
++            crate::check_cancelled(cancel.as_ref())?;
+@@ -1298,0 +1304 @@
++            crate::check_cancelled(cancel.as_ref())?;
+--- a/src/partition.rs
++++ b/src/partition.rs
+@@ -1005,0 +1006 @@
++        let cancel = crate::current_cancel_check();
+@@ -1009,0 +1011,3 @@
++                if crate::check_cancelled(cancel.as_ref()).is_err() {
++                    return leaves;
++                }
+@@ -1134,0 +1139 @@
++        let cancel = crate::current_cancel_check();
+@@ -1138,0 +1144,3 @@
++                if crate::check_cancelled(cancel.as_ref()).is_err() {
++                    return leaves;
++                }
+@@ -1215,0 +1224 @@
++        let cancel = crate::current_cancel_check();
+@@ -1219,0 +1229,3 @@
++                if crate::check_cancelled(cancel.as_ref()).is_err() {
++                    return (luma_leaves, chroma_leaves);
++                }

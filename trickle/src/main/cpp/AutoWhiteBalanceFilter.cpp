@@ -25,6 +25,7 @@ int *AutoWhiteBalanceFilter::procImage() {
 
     // 1. Build histograms, ignoring alpha == 0
     for (int i = 0; i < width * height; ++i) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         uint8_t r = bytePixels[i * 4 + 0];
         uint8_t g = bytePixels[i * 4 + 1];
         uint8_t b = bytePixels[i * 4 + 2];
@@ -83,6 +84,7 @@ int *AutoWhiteBalanceFilter::procImage() {
 
     // 2. Apply LUT and blend with strength
     for (int i = 0; i < width * height; ++i) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         uint8_t a = bytePixels[i * 4 + 3];
         if (a == 0) continue;
 

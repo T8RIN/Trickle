@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 #include <android/bitmap.h>
 #include <__functional/function.h>
 #include "Util.h"
@@ -20,6 +21,8 @@ JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_oilImpl(JNIEnv *env,
                                                             jobject object, jobject bitmap,
                                                             jint oilRange) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     void *pixels;
     int lock;
@@ -46,13 +49,15 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_oilImpl(JNIEnv *env,
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return createBitmap(env, result, width, height, stride);
+    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tvImpl(JNIEnv *env, jobject object,
                                                            jobject bitmap) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     void *pixels;
     int lock;
@@ -77,13 +82,15 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_tvImpl(JNIEnv *env, jobject 
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return createBitmap(env, result, width, height, stride);
+    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_hdrImpl(JNIEnv *env, jobject object,
                                                             jobject bitmap) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     void *pixels;
     int lock;
@@ -108,13 +115,15 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_hdrImpl(JNIEnv *env, jobject
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return createBitmap(env, result, width, height, stride);
+    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_sketchImpl(JNIEnv *env, jobject object,
                                                                jobject bitmap) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     void *pixels;
     int lock;
@@ -139,13 +148,15 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_sketchImpl(JNIEnv *env, jobj
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return createBitmap(env, result, width, height, stride);
+    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
 }
 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_gothamImpl(JNIEnv *env, jobject object,
                                                                jobject bitmap) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     void *pixels;
     int lock;
@@ -170,13 +181,15 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_gothamImpl(JNIEnv *env, jobj
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return createBitmap(env, result, width, height, stride);
+    return interruption.throwIfRequested() ? nullptr : createBitmap(env, result, width, height, stride);
 }
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_colorPosterizeImpl(JNIEnv *env, jobject thiz,
                                                                        jobject input,
                                                                        jintArray colors) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -211,6 +224,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_colorPosterizeImpl(JNIEnv *e
     }
 
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
 
@@ -258,7 +272,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_colorPosterizeImpl(JNIEnv *e
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 extern "C"
 JNIEXPORT jobject JNICALL
@@ -267,6 +281,8 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_replaceColorImpl(JNIEnv *env
                                                                      jint source_color,
                                                                      jint target_color,
                                                                      jfloat tolerance) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo sourceInfo;
     void *sourcePixels;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0) {
@@ -297,6 +313,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_replaceColorImpl(JNIEnv *env
     }
 
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) break;
         auto src = reinterpret_cast<uint8_t *>(reinterpret_cast<uint8_t *>(sourcePixels) +
                                                y * stride);
 
@@ -340,7 +357,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_replaceColorImpl(JNIEnv *env
         return nullptr;
     }
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }
 
 extern "C"
@@ -428,12 +445,15 @@ Java_com_t8rin_trickle_WarpEngine_nativeRender(
             config
     );
 
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
+
     void* outPtr;
-    AndroidBitmap_lockPixels(env, outBitmap, &outPtr);
+    if (!outBitmap || AndroidBitmap_lockPixels(env, outBitmap, &outPtr) < 0) return nullptr;
     engine->render(outPtr);
     AndroidBitmap_unlockPixels(env, outBitmap);
 
-    return outBitmap;
+    return interruption.throwIfRequested() ? nullptr : outBitmap;
 }
 
 extern "C"
@@ -455,6 +475,8 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_autoWhiteBalanceImpl(
         jfloat strength,
         jfloat clipPercent
 ) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     void *pixels;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
@@ -498,5 +520,5 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_autoWhiteBalanceImpl(
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, resultBitmap);
 
-    return resultBitmap;
+    return interruption.throwIfRequested() ? nullptr : resultBitmap;
 }

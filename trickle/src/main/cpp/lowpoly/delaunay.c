@@ -1,3 +1,4 @@
+#include "lowpoly.h"
 /*
  *  Copyright 2016 xyzxqs (xyzxqs@gmail.com)
  *
@@ -34,6 +35,7 @@
 void triangulate(Point *vertices, int size_vertices, int w, int h, PNode *head) {
     TriNet *triNet = net_init(vertices, size_vertices, w, h);
     for (int i = 0; i < size_vertices; ++i) {
+        if (lowpoly_interrupted()) break;
         trinet_point_add(i, triNet);
     }
     Triangle **pTriangle = triNet->triangles_heads;

@@ -7,6 +7,7 @@
 #include <memory>
 #include <new>
 #include "BitmapUtils.h"
+#include "EncodingInterruption.h"
 #include "lowpoly/cairo/dither/blue-noise-64x64.h"
 
 namespace {
@@ -323,7 +324,7 @@ float clampCutoff(float cutoff) {
 
 void applyDithering(
         const DitherBitmap &bitmap, DitherPattern pattern, int threshold,
-        const DiffusionKernel *kernel, Channels *errors
+        const DiffusionKernel *kernel, Channels *errors, const EncodingInterruption &interruption
 ) {
     int width = bitmap.width;
     int height = bitmap.height;
@@ -331,6 +332,7 @@ void applyDithering(
     bool adaptive = pattern == DitherPattern::Ostromoukhov;
     const Channels zero{};
     for (int y = 0; y < height; ++y) {
+        if (interruption.requested()) return;
         const auto *sourceRow = bitmap.source + static_cast<size_t>(y) * bitmap.sourceStride;
         auto *outputRow = bitmap.output + static_cast<size_t>(y) * bitmap.outputStride;
         int step = kernel && y % 2 ? -1 : 1;
@@ -388,7 +390,7 @@ void applyDithering(
 }
 
 template<typename Visitor>
-void visitHilbert(
+bool visitHilbert(
         int64_t x, int64_t y, int64_t ax, int64_t ay, int64_t bx, int64_t by, int64_t size,
         int width, int height, const Visitor &visit
 ) {
@@ -396,11 +398,10 @@ void visitHilbert(
     int64_t left = std::min(x, x + ax + bx);
     int64_t top = std::min(y, y + ay + by);
     if (left >= width || top >= height) {
-        return;
+        return true;
     }
     if (size == 1) {
-        visit(static_cast<int>(left), static_cast<int>(top));
-        return;
+        return visit(static_cast<int>(left), static_cast<int>(top));
     }
 
     size /= 2;
@@ -408,13 +409,14 @@ void visitHilbert(
     ay /= 2;
     bx /= 2;
     by /= 2;
-    visitHilbert(x, y, bx, by, ax, ay, size, width, height, visit);
-    visitHilbert(x + ax, y + ay, ax, ay, bx, by, size, width, height, visit);
-    visitHilbert(x + ax + bx, y + ay + by, ax, ay, bx, by, size, width, height, visit);
-    visitHilbert(x + ax + 2 * bx, y + ay + 2 * by, -bx, -by, -ax, -ay, size, width, height, visit);
+    return visitHilbert(x, y, bx, by, ax, ay, size, width, height, visit)
+           && visitHilbert(x + ax, y + ay, ax, ay, bx, by, size, width, height, visit)
+           && visitHilbert(x + ax + bx, y + ay + by, ax, ay, bx, by, size, width, height, visit)
+           && visitHilbert(x + ax + 2 * bx, y + ay + 2 * by, -bx, -by, -ax, -ay, size, width, height, visit);
 }
 
-void applyRiemersma(const DitherBitmap &bitmap, int threshold) {
+void applyRiemersma(const DitherBitmap &bitmap, int threshold,
+                    const EncodingInterruption &interruption) {
     constexpr int historySize = 16;
     constexpr float oldestWeight = 1.f / 16;
     constexpr float decay = 0.8312379f; // Sixteen entries from weight 1 down to 1/16.
@@ -427,7 +429,9 @@ void applyRiemersma(const DitherBitmap &bitmap, int threshold) {
         size *= 2;
     }
 
+    size_t visited = 0;
     visitHilbert(0, 0, size, 0, 0, size, size, bitmap.width, bitmap.height, [&](int x, int y) {
+        if ((visited++ & 1023) == 0 && interruption.requested()) return false;
         const auto *src = bitmap.source + static_cast<size_t>(y) * bitmap.sourceStride +
                           static_cast<size_t>(x) * 4;
         auto *dst = bitmap.output + static_cast<size_t>(y) * bitmap.outputStride +
@@ -449,6 +453,7 @@ void applyRiemersma(const DitherBitmap &bitmap, int threshold) {
         }
         history[oldest] = error;
         oldest = (oldest + 1) % historySize;
+        return true;
     });
 }
 
@@ -459,6 +464,9 @@ JNIEXPORT jobject JNICALL
 Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ditheringPatternImpl(
         JNIEnv *env, jobject, jobject input, jint patternId, jint threshold, jboolean isGrayScale
 ) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
+
     AndroidBitmapInfo sourceInfo;
     if (AndroidBitmap_getInfo(env, input, &sourceInfo) < 0 ||
         sourceInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
@@ -502,12 +510,13 @@ Java_com_t8rin_trickle_pipeline_DitheringPipelineImpl_ditheringPatternImpl(
             alphaMode, isGrayScale ? 1 : 3
     };
     if (pattern == DitherPattern::Riemersma) {
-        applyRiemersma(bitmap, threshold);
+        applyRiemersma(bitmap, threshold, interruption);
     } else {
-        applyDithering(bitmap, pattern, threshold, kernel, errors.get());
+        applyDithering(bitmap, pattern, threshold, kernel, errors.get(), interruption);
     }
 
     int outputStatus = AndroidBitmap_unlockPixels(env, output);
     int sourceStatus = AndroidBitmap_unlockPixels(env, input);
+    if (interruption.throwIfRequested()) return nullptr;
     return outputStatus < 0 || sourceStatus < 0 ? nullptr : output;
 }

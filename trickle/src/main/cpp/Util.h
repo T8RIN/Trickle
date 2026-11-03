@@ -14,6 +14,7 @@
 #include <sys/time.h>
 
 #include "ColorGetter.h"
+#include "EncodingInterruption.h"
 
 #define    LOG_TAG    "AndroidImageFilter"
 #define    LOGI(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -102,6 +103,7 @@ procImage(JNIEnv *env, jintArray pixels, jint width, jint height, GENERAL_IMG_PR
 
 static inline void changeImageToGray(int *pixels, int width, int height) {
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) return;
         Color color(pixels[i]);
         float gray = color.R() * 0.3 + color.G() * 0.59 + color.B() * 0.11;
         pixels[i] = RGB2Color(gray, gray, gray);

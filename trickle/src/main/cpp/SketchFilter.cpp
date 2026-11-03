@@ -21,6 +21,7 @@ int *SketchFilter::procImage() {
 
     int threshold = 7;
     for (int i = 1; i < height - 1; i++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int j = 1; j < width - 1; j++) {
             Color centerColor(originPixels[i * width + j]);
             int centerGray = centerColor.R();

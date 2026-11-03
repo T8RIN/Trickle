@@ -17,25 +17,25 @@ internal object EffectsPipelineImpl : EffectsPipeline {
         input: Bitmap,
         oilRange: Int
     ): Bitmap = oilImpl(
-        input = input.safe(),
+        input = input.copy(Bitmap.Config.ARGB_8888, true),
         oilRange = oilRange
     ) ?: input
 
     override fun tv(
         input: Bitmap
-    ): Bitmap = tvImpl(input.safe()) ?: input
+    ): Bitmap = tvImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
 
     override fun hdr(
         input: Bitmap
-    ): Bitmap = hdrImpl(input.safe()) ?: input
+    ): Bitmap = hdrImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
 
     override fun sketch(
         input: Bitmap
-    ): Bitmap = sketchImpl(input.safe()) ?: input
+    ): Bitmap = sketchImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
 
     override fun gotham(
         input: Bitmap
-    ): Bitmap = gothamImpl(input.safe()) ?: input
+    ): Bitmap = gothamImpl(input.copy(Bitmap.Config.ARGB_8888, true)) ?: input
 
     override fun cropToContent(
         input: Bitmap,

@@ -1,3 +1,4 @@
+#include "lowpoly.h"
 /*
  *  Copyright 2016 xyzxqs (xyzxqs@gmail.com)
  *
@@ -29,6 +30,7 @@ void dedup(Point *points, int *size) {
     Point *pl, *pr;
     qsort(points, (size_t) (*size), sizeof(Point), qsorter);
     for (int i = 0; i + 1 < (*size); ++i) {
+        if (lowpoly_interrupted()) return;
         pl = &(points[i]);
         for (int j = i + 1; j + 1 < (*size); ++j) {
             pr = &(points[j]);

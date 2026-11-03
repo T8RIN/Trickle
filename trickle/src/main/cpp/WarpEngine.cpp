@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 #include <jni.h>
 #include <android/bitmap.h>
 #include <cmath>
@@ -226,6 +227,7 @@ struct WarpEngine {
     void render(void* outPtr) {
         int* out = (int*)outPtr;
         for (int y = 0; y < h; y++) {
+            if (EncodingInterruption::currentRequested()) return;
             for (int x = 0; x < w; x++) {
                 int i = y * w + x;
                 float sx = x + map.dx[i];

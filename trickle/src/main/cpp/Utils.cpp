@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 #include <jni.h>
 #include <android/bitmap.h>
 #include <vector>
@@ -12,6 +13,7 @@ Java_com_t8rin_trickle_TrickleUtils_calculateBrightnessEstimate(
         jobject bitmap,
         jint pixelSpacing
 ) {
+    const EncodingInterruption interruption(env);
     AndroidBitmapInfo info;
     void *pixelsPtr;
 
@@ -29,7 +31,9 @@ Java_com_t8rin_trickle_TrickleUtils_calculateBrightnessEstimate(
     long b = 0;
     long n = 0;
 
+    int sampled = 0;
     for (int i = 0; i < size; i += pixelSpacing) {
+        if ((sampled++ & 1023) == 0 && interruption.requested()) break;
         uint32_t color = pixels[i];
         r += (color >> 16) & 0xFF; // red
         g += (color >> 8) & 0xFF; // green
@@ -39,7 +43,7 @@ Java_com_t8rin_trickle_TrickleUtils_calculateBrightnessEstimate(
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return (jint) ((r + g + b) / (n * 3));
+    return interruption.throwIfRequested() ? 0 : static_cast<jint>((r + g + b) / (n * 3));
 }
 
 static inline int clamp(int v, int minv, int maxv) {
@@ -55,6 +59,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_fastBlurImpl(
         jfloat scale,
         jint radius
 ) {
+    const EncodingInterruption interruption(env);
     if (srcBitmap == nullptr || radius < 1) return srcBitmap;
 
     AndroidBitmapInfo srcInfo;
@@ -118,6 +123,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_fastBlurImpl(
     int yi = 0, yw = 0;
 
     for (int y = 0; y < h; y++) {
+        if (interruption.requested()) break;
         int rsum = 0, gsum = 0, bsum = 0;
         for (int i = -radius; i <= radius; i++) {
             int p = pix[yi + clamp(i, 0, wm)];
@@ -147,6 +153,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_fastBlurImpl(
     }
 
     for (int x = 0; x < w; x++) {
+        if (interruption.requested()) break;
         int rsum = 0, gsum = 0, bsum = 0;
         int yp = -radius * w;
 
@@ -198,7 +205,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_fastBlurImpl(
                     JNI_TRUE
             );
 
-    return result;
+    return interruption.throwIfRequested() ? nullptr : result;
 }
 
 extern "C"
@@ -210,6 +217,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_stackBlurImpl(
         jfloat scale,
         jint radius
 ) {
+    const EncodingInterruption interruption(env);
     if (srcBitmap == nullptr || radius < 1) return srcBitmap;
 
     AndroidBitmapInfo srcInfo;
@@ -280,6 +288,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_stackBlurImpl(
     int r1 = radius + 1;
 
     for (int y = 0; y < h; y++) {
+        if (interruption.requested()) break;
         int rsum = 0, gsum = 0, bsum = 0;
         int routsum = 0, goutsum = 0, boutsum = 0;
         int rinsum = 0, ginsum = 0, binsum = 0;
@@ -359,6 +368,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_stackBlurImpl(
     }
 
     for (int x = 0; x < w; x++) {
+        if (interruption.requested()) break;
         int rsum = 0, gsum = 0, bsum = 0;
         int routsum = 0, goutsum = 0, boutsum = 0;
         int rinsum = 0, ginsum = 0, binsum = 0;
@@ -455,7 +465,7 @@ Java_com_t8rin_trickle_pipeline_EffectsPipelineImpl_stackBlurImpl(
                     JNI_TRUE
             );
 
-    return result;
+    return interruption.throwIfRequested() ? nullptr : result;
 }
 
 extern "C"
@@ -466,6 +476,7 @@ Java_com_t8rin_trickle_TrickleUtils_trimEmptyPartsImpl(
         jobject bitmap,
         jint transparent
 ) {
+    const EncodingInterruption interruption(env);
     if (bitmap == nullptr) return nullptr;
 
     AndroidBitmapInfo info;
@@ -493,6 +504,7 @@ Java_com_t8rin_trickle_TrickleUtils_trimEmptyPartsImpl(
 
     // firstX
     for (int x = 0; x < width && !found; x++) {
+        if (interruption.requested()) break;
         for (int y = 0; y < height; y++) {
             if (pixels[x + y * width] != (uint32_t) transparent) {
                 firstX = x;
@@ -505,6 +517,7 @@ Java_com_t8rin_trickle_TrickleUtils_trimEmptyPartsImpl(
     // firstY
     found = false;
     for (int y = 0; y < height && !found; y++) {
+        if (interruption.requested()) break;
         for (int x = firstX; x < width; x++) {
             if (pixels[x + y * width] != (uint32_t) transparent) {
                 firstY = y;
@@ -517,6 +530,7 @@ Java_com_t8rin_trickle_TrickleUtils_trimEmptyPartsImpl(
     // lastX
     found = false;
     for (int x = width - 1; x >= firstX && !found; x--) {
+        if (interruption.requested()) break;
         for (int y = height - 1; y >= firstY; y--) {
             if (pixels[x + y * width] != (uint32_t) transparent) {
                 lastX = x;
@@ -529,6 +543,7 @@ Java_com_t8rin_trickle_TrickleUtils_trimEmptyPartsImpl(
     // lastY
     found = false;
     for (int y = height - 1; y >= firstY && !found; y--) {
+        if (interruption.requested()) break;
         for (int x = width - 1; x >= firstX; x--) {
             if (pixels[x + y * width] != (uint32_t) transparent) {
                 lastY = y;
@@ -554,6 +569,7 @@ Java_com_t8rin_trickle_TrickleUtils_trimEmptyPartsImpl(
                     "(Landroid/graphics/Bitmap;IIII)Landroid/graphics/Bitmap;"
             );
 
+    if (interruption.throwIfRequested()) return nullptr;
     return env->CallStaticObjectMethod(
             bitmapCls,
             createBitmap,

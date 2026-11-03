@@ -1,3 +1,4 @@
+#include "EncodingInterruption.h"
 //
 // Created by Radzivon Bartoshyk on 12/10/2024.
 //
@@ -14,6 +15,7 @@ bool isImageHasAlpha(T *image, uint32_t stride, uint32_t width, uint32_t height)
         return true;
     }
     for (uint32_t y = 0; y < height; ++y) {
+        if (EncodingInterruption::currentRequested()) return false;
         uint32_t sums = 0;
         auto lane = reinterpret_cast<T *>(reinterpret_cast<uint8_t *>(image) + y * stride);
         for (uint32_t x = 0; x < width; ++x) {
@@ -35,6 +37,8 @@ template bool isImageHasAlpha(uint16_t *image, uint32_t stride, uint32_t width, 
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_t8rin_trickle_TrickleUtils_checkHasAlphaImpl(JNIEnv *env, jobject thiz, jobject bitmap) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return false;
     AndroidBitmapInfo info;
     void *pixels;
     int lock;
@@ -53,5 +57,5 @@ Java_com_t8rin_trickle_TrickleUtils_checkHasAlphaImpl(JNIEnv *env, jobject thiz,
 
     AndroidBitmap_unlockPixels(env, bitmap);
 
-    return result;
+    return interruption.throwIfRequested() ? false : result;
 }

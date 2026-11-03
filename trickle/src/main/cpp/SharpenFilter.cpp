@@ -30,6 +30,7 @@ int *SharpenFilter::procImage() {
     memset(edgePixels, 0, width * height * sizeof(int));
 
     for (int i = halfMaskSize; i < height - halfMaskSize; i++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int k = halfMaskSize; k < width - halfMaskSize; k++) {
             index = 0;
             newR = newG = newB = 0;
@@ -59,6 +60,7 @@ int *SharpenFilter::procImage() {
     }
 
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color edgeColor(edgePixels[i]);
         Color originColor(pixels[i]);
 
@@ -83,6 +85,7 @@ int *SharpenFilter::highBoostSharpen() {
 
     int *edgePixels = new int[width * height];
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color pixColor(pixels[i]);
         Color blurColor(blurPixels[i]);
         int edgeR = min(255, max(0, pixColor.R() - blurColor.R()));
@@ -92,6 +95,7 @@ int *SharpenFilter::highBoostSharpen() {
     }
 
     for (int i = 0; i < width * height; i++) {
+        if ((i & 1023) == 0 && EncodingInterruption::currentRequested()) break;
         Color pixColor(pixels[i]);
         Color edgeColor(edgePixels[i]);
         int r = min(255, max(0, pixColor.R() + boostFactor * edgeColor.R()));

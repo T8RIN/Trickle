@@ -62,6 +62,7 @@ int *GaussianBlurFilter::procImage() {
     long startTime = getCurrentTime();
 
     for (int row = bound; row < height - bound; row++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int col = bound; col < width - bound; col++) {
             index = 0;
             sumR = sumG = sumB = 0;

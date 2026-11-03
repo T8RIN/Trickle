@@ -8,9 +8,15 @@
 #include "cairo-surface-inline.h"
 #include "_log.h"
 #include "../BitmapUtils.h"
+#include "../EncodingInterruption.h"
+#include <vector>
 #include <string>
 
 #define CLAMP(value, min, max) ((value) < (min) ? (min) : ((value) > (max) ? (max) : (value)))
+
+extern "C" int lowpoly_interrupted(void) {
+    return EncodingInterruption::currentRequested();
+}
 
 extern "C"
 JNIEXPORT jintArray JNICALL
@@ -19,6 +25,8 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_getTriangles(JNIEnv *env, jo
                                                                  jint threshold,
                                                                  jfloat alpha_count,
                                                                  jboolean lowPoly) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
         return nullptr;
@@ -32,29 +40,16 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_getTriangles(JNIEnv *env, jo
     int width = (int) info.width;
     int height = (int) info.height;
 
-    jint *pixelArray = (jint *) malloc(sizeof(jint) * width * height);
-    memcpy(pixelArray, allocatedPixels, sizeof(jint) * width * height);
+    std::vector<jint> triangles(width * height);
+    int triangleSize = 0;
+    get_triangles(static_cast<const int *>(allocatedPixels), width * height, width, height,
+                  threshold, alpha_count, triangles.data(), &triangleSize, lowPoly);
+    AndroidBitmap_unlockPixels(env, input);
 
-    jintArray pixels_ = (*env).NewIntArray(width * height);
-    (*env).SetIntArrayRegion(pixels_, 0, width * height, pixelArray);
-
-    jint *pixels = (*env).GetIntArrayElements(pixels_, nullptr);
-    jint size = (*env).GetArrayLength(pixels_);
-
-    jintArray tmpArray_ = (*env).NewIntArray(size);
-    jint *tmpArray = (*env).GetIntArrayElements(tmpArray_, nullptr);
-
-    int tmpSize = 0;
-
-    get_triangles(pixels, size, width, height, threshold, alpha_count, tmpArray, &tmpSize, lowPoly);
-
-    (*env).ReleaseIntArrayElements(pixels_, pixels, 0);
-
-    jintArray result = (*env).NewIntArray(tmpSize);
-
-    (*env).SetIntArrayRegion(result, 0, tmpSize, tmpArray);
-
-    (*env).ReleaseIntArrayElements(tmpArray_, tmpArray, 0);
+    if (interruption.throwIfRequested()) return nullptr;
+    jintArray result = env->NewIntArray(triangleSize);
+    if (!result) return nullptr;
+    env->SetIntArrayRegion(result, 0, triangleSize, triangles.data());
     return result;
 }
 
@@ -74,6 +69,8 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jobjec
                                                              jfloat alphaOrPointCount,
                                                              jboolean lowPoly,
                                                              jboolean fill) {
+    const EncodingInterruption interruption(env);
+    if (interruption.throwIfRequested()) return nullptr;
     AndroidBitmapInfo info;
     if (AndroidBitmap_getInfo(env, input, &info) < 0) {
         return nullptr;
@@ -129,7 +126,8 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jobjec
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
 
     if (lowPoly) {
-        for (int i = 0; i + 5 < width * height; i += 6) {
+        for (int i = 0; i + 5 < tmpSize; i += 6) {
+            if (interruption.requested()) break;
             int x1 = triangles[i];
             int y1 = triangles[i + 1];
             int x2 = triangles[i + 2];
@@ -167,7 +165,8 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jobjec
             }
         }
     } else {
-        for (int i = 0; i + 1 < width * height; i += 2) {
+        for (int i = 0; i + 1 < tmpSize; i += 2) {
+            if (interruption.requested()) break;
             int x1 = triangles[i];
             int y1 = triangles[i + 1];
             uint32_t rowsOffset = CLAMP(y1, 0, height - 1) * width;
@@ -205,5 +204,5 @@ Java_com_t8rin_trickle_pipeline_LowPolyPipelineImpl_generate(JNIEnv *env, jobjec
     AndroidBitmap_unlockPixels(env, input);
     AndroidBitmap_unlockPixels(env, newImage);
 
-    return newImage;
+    return interruption.throwIfRequested() ? nullptr : newImage;
 }

@@ -1,3 +1,4 @@
+#include "lowpoly.h"
 /*
  *  Copyright 2016 xyzxqs (xyzxqs@gmail.com)
  *
@@ -38,6 +39,7 @@ void sobel(const int *pixel, int w, int h, Filter filter, Point *points, int *le
     int size = w * h / 2;
     int i = 0;
     for (int y = 1; y < h; ++y) {
+        if (lowpoly_interrupted()) return;
         for (int x = 1; x < w; ++x) {
             int pixelX = (
                     (sobelOperatorX[0][0] * color_average(pixel, w, h, x - 1, y - 1)) +

@@ -1,3 +1,4 @@
+#include "lowpoly.h"
 /*
  *  Copyright 2016 xyzxqs (xyzxqs@gmail.com)
  *
@@ -40,6 +41,7 @@ void dilution(const Point *points, int size_points, int width, int height, float
 
     if (alpha < 0.0f || (alpha > 9.9f && alpha < 1.0f) || (int) alpha > size_points) {
         for (int i = 0; i < size_points; i++) {
+            if ((i & 1023) == 0 && lowpoly_interrupted()) return;
             const Point *cp = &(points[i]);
             Point *p = &(result_points[(*size_result)++]);
             p->x = cp->x;
@@ -52,6 +54,7 @@ void dilution(const Point *points, int size_points, int width, int height, float
             int pbx = (int) (width * a);
             int pby = (int) (height * a);
             for (int i = 0; i < size_points; i++) {
+                if ((i & 1023) == 0 && lowpoly_interrupted()) return;
                 const Point *cp = &(points[i]);
                 if (point_filter0(cp, width, height, pbx, pby)) {
                     Point *p = &(result_points[(*size_result)++]);
@@ -73,6 +76,7 @@ void point_filter1(const Point *points, int size_points, int pointNum,
     const Point *cp;
     Point *p;
     while (pointNum--) {
+        if ((pointNum & 1023) == 0 && lowpoly_interrupted()) return;
         random_index = (int) (random01() * (size_points - 1));
         cp = &(points[random_index]);
         p = &(result_points[(*size_result)++]);

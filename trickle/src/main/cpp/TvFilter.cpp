@@ -15,6 +15,7 @@ TvFilter::TvFilter(int *pixels, int width, int height) :
 int *TvFilter::procImage() {
     int r, g, b;
     for (int x = 0; x < width; x++) {
+        if (EncodingInterruption::currentRequested()) break;
         for (int y = 0; y < height; y += gap) {
             r = g = b = 0;
 
