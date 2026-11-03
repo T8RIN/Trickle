@@ -38,6 +38,10 @@ add_library( # Sets the name of the library.
         AutoWhiteBalanceFilter.cpp
         ColorTransfer.cpp
         ProcessingFilters.cpp
+        PhotoEffects.cpp
+        AnalogEffects.cpp
+        FilmEffects.cpp
+        PrintEffects.cpp
         ColorUtils.cpp
         BitmapUtils.cpp
         MagicResize.cpp
