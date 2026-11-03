@@ -1,0 +1,18 @@
+[package]
+name = "jhm17_jni"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jhm17 = { version = "=0.1.0", features = ["polish"] }
+jni = { version = "0.21", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

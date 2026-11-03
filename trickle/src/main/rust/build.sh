@@ -26,3 +26,4 @@ build_crate oxipng_jni
 build_crate ntsc_jni
 build_crate imagequant_jni
 build_crate vvc_jni
+build_crate jhm17_jni

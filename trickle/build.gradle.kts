@@ -52,8 +52,8 @@ android {
 
     dependencies {
         implementation(libs.androidxCore)
-        androidTestImplementation("androidx.test.ext:junit:1.3.0")
-        androidTestImplementation("androidx.test:runner:1.7.0")
+        androidTestImplementation(libs.androidx.junit)
+        androidTestImplementation(libs.androidx.runner)
         coreLibraryDesugaring(libs.desugaring)
     }
 

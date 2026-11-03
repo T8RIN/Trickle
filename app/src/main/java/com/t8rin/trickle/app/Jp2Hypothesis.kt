@@ -26,6 +26,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -36,16 +37,24 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.scale
-import coil.compose.AsyncImage
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.size.Size
-import coil.transform.Transformation
-import coil.util.DebugLogger
+import coil3.ImageLoader
+import coil3.compose.AsyncImage
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.request.maxBitmapSize
+import coil3.request.transformations
+import coil3.size.Precision
+import coil3.size.Scale
+import coil3.size.Size
+import coil3.toBitmap
+import coil3.transform.Transformation
+import coil3.util.DebugLogger
+import com.t8rin.trickle.Jhm17
 import com.t8rin.trickle.MagicResizeType
 import com.t8rin.trickle.NtscSettings
 import com.t8rin.trickle.Trickle
@@ -54,6 +63,11 @@ import com.t8rin.trickle.VvcEncoder
 import com.t8rin.trickle.WarpBrush
 import com.t8rin.trickle.WarpEngine
 import com.t8rin.trickle.WarpMode
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -180,9 +194,8 @@ fun MainActivity.Jp2Hypothesis() {
                             .allowHardware(false)
                             .transformations(
                                 listOf(
-                                    object : Transformation {
-                                        override val cacheKey: String
-                                            get() = Random.nextInt().toString()
+                                    object : Transformation() {
+                                        override val cacheKey = Random.nextInt().toString()
 
                                         override suspend fun transform(
                                             input: Bitmap,
@@ -224,9 +237,8 @@ fun MainActivity.Jp2Hypothesis() {
                             .allowHardware(false)
                             .transformations(
                                 listOf(
-                                    object : Transformation {
-                                        override val cacheKey: String
-                                            get() = Random.nextInt().toString()
+                                    object : Transformation() {
+                                        override val cacheKey = Random.nextInt().toString()
 
                                         override suspend fun transform(
                                             input: Bitmap,
@@ -331,7 +343,7 @@ fun MainActivity.Jp2Hypothesis() {
                             .data(source)
                             .size(1200)
                             .build()
-                    ).drawable?.toBitmap()?.let { WarpEngine(it) }
+                    ).image?.toBitmap()?.let { WarpEngine(it) }
                 }
 
                 Image(
@@ -376,6 +388,8 @@ fun MainActivity.Jp2Hypothesis() {
             }
             Slider(value = colorValue, onValueChange = { colorValue = it }, valueRange = 0f..1f)
 
+            JpegComparison(source, imageLoader)
+
             Section("Auto White Balance") {
                 FloatSlider("Strength", awbStrength, 0f..1f) { awbStrength = it }
                 FloatSlider("Clipping", awbClipPercent, 0f..2f) { awbClipPercent = it }
@@ -401,6 +415,72 @@ fun MainActivity.Jp2Hypothesis() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun JpegComparison(source: String, imageLoader: ImageLoader) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var options by remember { mutableStateOf(Jhm17.Options()) }
+    var running by remember { mutableStateOf(false) }
+    var result by remember(source, options) { mutableStateOf<String?>(null) }
+    val maxSize = 512
+
+    Section("JPEG comparison") {
+        val imageLabel = if (source.isBlank()) "Sample image" else "Source image"
+        Text("$imageLabel · up to $maxSize px")
+        IntSlider("Quality", options.quality, 1..100) { options = options.copy(quality = it) }
+        EnumCycle("Polish", options.polish, Jhm17.Polish.entries) {
+            options = options.copy(polish = it)
+        }
+        Button(
+            enabled = !running,
+            onClick = {
+                val selectedOptions = options
+                val model = source.takeIf { it.isNotBlank() } ?: R.drawable.test
+                running = true
+                result = null
+                scope.launch {
+                    try {
+                        result = withContext(Dispatchers.Default) {
+                            val image = imageLoader.execute(
+                                ImageRequest.Builder(context)
+                                    .data(model)
+                                    .allowHardware(false)
+                                    .size(maxSize)
+                                    .scale(Scale.FIT)
+                                    .precision(Precision.INEXACT)
+                                    .maxBitmapSize(Size(maxSize, maxSize))
+                                    .build()
+                            ).image ?: error("Could not load the image")
+                            val bitmap = image.toBitmap()
+                            val platformSize = ByteArrayOutputStream().use { output ->
+                                val compressed = bitmap.compress(
+                                    Bitmap.CompressFormat.JPEG, selectedOptions.quality, output
+                                )
+                                check(compressed) { "Bitmap.compress failed" }
+                                output.size()
+                            }
+                            val jhmSize = Jhm17.encode(bitmap, selectedOptions).size
+                            val ratio = (100.0 * jhmSize / platformSize).roundToInt()
+                            "${bitmap.width} × ${bitmap.height} px\n" +
+                                    "jhm17: $jhmSize bytes ($ratio% of Android JPEG)\n" +
+                                    "Bitmap.compress: $platformSize bytes"
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        result = e.message ?: "JPEG comparison failed"
+                    } finally {
+                        running = false
+                    }
+                }
+            }
+        ) {
+            Text(if (running) "Encoding…" else "Compare JPEG sizes")
+        }
+        result?.let { Text(it) }
     }
 }
 
@@ -787,7 +867,7 @@ private fun Float.shortString(): String {
 class GenericTransformation(
     val key: Any? = Random.nextInt(),
     val action: suspend (Bitmap, Size) -> Bitmap
-) : Transformation {
+) : Transformation() {
 
     constructor(
         key: Any? = Random.nextInt(),

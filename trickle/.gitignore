@@ -11,3 +11,5 @@
 /src/main/rust/imagequant_jni/target/
 /src/main/rust/vvc_jni/target/
 /src/main/rust/vvc_jni/Cargo.lock
+/src/main/rust/jhm17_jni/Cargo.lock
+/src/main/rust/jhm17_jni/target/
