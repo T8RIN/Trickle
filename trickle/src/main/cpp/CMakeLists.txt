@@ -39,6 +39,30 @@ add_library( # Sets the name of the library.
         ColorTransfer.cpp
         ProcessingFilters.cpp
         PhotoEffects.cpp
+        NailStringArt.cpp
+        FoldedBook.cpp
+        PaperQuilling.cpp
+        LenticularPrint.cpp
+        PinArt.cpp
+        CeramicGlaze.cpp
+        Marquetry.cpp
+        PhotoelasticStress.cpp
+        Condensation.cpp
+        HeightAmbientOcclusion.cpp
+        HeightCastShadows.cpp
+        RefractiveCaustics.cpp
+        ThinFilmIridescence.cpp
+        DiffractionGrating.cpp
+        FlowTexture.cpp
+        HilbertRibbon.cpp
+        MazePortrait.cpp
+        KnittedFabric.cpp
+        OrigamiRelief.cpp
+        PageCurl.cpp
+        CurlAdvection.cpp
+        HistogramMosaic.cpp
+        LocalBinaryPattern.cpp
+        LocalEntropyMap.cpp
         AnalogEffects.cpp
         FilmEffects.cpp
         PrintEffects.cpp

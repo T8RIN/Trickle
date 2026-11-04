@@ -171,4 +171,249 @@ interface PhotoEffectsPipeline {
         palette: IntArray,
         dithering: Float = 0.12f
     ): Bitmap
+
+    /** Treat luminance as a height field and darken recesses according to their visible horizon. */
+    suspend fun heightAmbientOcclusion(
+        input: Bitmap,
+        radius: Float = 0.045f,
+        depth: Float = 1.8f,
+        directions: Int = 8,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Cast directional shadows across a relief derived from image luminance. */
+    suspend fun heightCastShadows(
+        input: Bitmap,
+        azimuth: Float = 135f,
+        elevation: Float = 35f,
+        depth: Float = 0.35f,
+        softness: Float = 0.15f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Focus refracted light through the image height field into bright caustic patterns. */
+    suspend fun refractiveCaustics(
+        input: Bitmap,
+        scale: Float = 1f,
+        refraction: Float = 0.035f,
+        dispersion: Float = 0.25f,
+        focus: Float = 1.4f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Create wavelength interference in a thin film whose thickness follows image luminance. */
+    suspend fun thinFilmIridescence(
+        input: Bitmap,
+        thickness: Float = 480f,
+        variation: Float = 320f,
+        angle: Float = 35f,
+        saturation: Float = 0.8f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Create angle-dependent spectral reflections from a relief diffraction grating. */
+    suspend fun diffractionGrating(
+        input: Bitmap,
+        spacing: Float = 1.6f,
+        angle: Float = 25f,
+        relief: Float = 0.65f,
+        bandwidth: Float = 0.35f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Convolve noise along the image tangent field to reveal continuous flowing textures. */
+    suspend fun flowTexture(
+        input: Bitmap,
+        length: Float = 0.035f,
+        detail: Float = 1.4f,
+        contrast: Float = 0.7f,
+        seed: Int = 0,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Draw one continuous Hilbert ribbon with its width controlled by image darkness. */
+    suspend fun hilbertRibbon(
+        input: Bitmap,
+        order: Int = 6,
+        lineWidth: Float = 0.85f,
+        contrast: Float = 2.5f,
+        ink: Int = 0xFF18232B.toInt(),
+        paper: Int = 0xFFF5F0E4.toInt(),
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Build a connected maze whose routes and wall widths follow image luminance. */
+    suspend fun mazePortrait(
+        input: Bitmap,
+        cellSize: Float = 12f,
+        wallWidth: Float = 0.46f,
+        bias: Float = 3f,
+        seed: Int = 1,
+        ink: Int = 0xFF18232B.toInt(),
+        paper: Int = 0xFFF5F0E4.toInt(),
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Turn image colors into overlapping yarn loops with knitted relief and fiber twist. */
+    suspend fun knittedFabric(
+        input: Bitmap,
+        stitchSize: Float = 16f,
+        yarnWidth: Float = 0.2f,
+        relief: Float = 0.7f,
+        twist: Float = 0.6f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Fold the image into a continuous triangular paper relief with lit faces and creases. */
+    suspend fun origamiRelief(
+        input: Bitmap,
+        cellSize: Float = 72f,
+        foldHeight: Float = 0.5f,
+        lightAngle: Float = 315f,
+        crease: Float = 0.45f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Curl the lower-right corner around a cylinder, revealing the back of the page and a transparent opening. */
+    suspend fun pageCurl(
+        input: Bitmap,
+        amount: Float = 0.25f,
+        radius: Float = 0.08f,
+        angle: Float = 35f,
+        shadow: Float = 0.6f,
+        backside: Int = 0xFFFFF8E7.toInt(),
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Transport the image through a divergence-free noise field to create swirling fluid motion. */
+    suspend fun curlAdvection(
+        input: Bitmap,
+        scale: Float = 4f,
+        distance: Float = 48f,
+        steps: Int = 16,
+        seed: Int = 1,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Replace each image cell with a tiny luminance histogram colored by the pixels in each bin. */
+    suspend fun histogramMosaic(
+        input: Bitmap,
+        cells: Int = 16,
+        bins: Int = 8,
+        gap: Float = 0.08f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Encode eight circular neighbor comparisons as a grayscale texture descriptor. */
+    suspend fun localBinaryPattern(
+        input: Bitmap,
+        radius: Float = 3f,
+        tolerance: Float = 0.02f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Measure local tonal uncertainty. Flat regions become dark and varied texture becomes bright. */
+    suspend fun localEntropyMap(
+        input: Bitmap,
+        radius: Float = 12f,
+        bins: Int = 16,
+        gain: Float = 1f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Rebuild the image with one continuous thread joining circularly arranged nails, choosing each chord to reduce the remaining tonal error. */
+    suspend fun nailStringArt(
+        input: Bitmap,
+        nails: Int = 128,
+        threads: Int = 1200,
+        threadWidth: Float = 0.8f,
+        contrast: Float = 1f,
+        ink: Int = 0xFF18232B.toInt(),
+        paper: Int = 0xFFF5F0E4.toInt(),
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Fold the fore-edges of closely spaced book pages into an image-guided relief with visible paper edges and shadowed gaps. */
+    suspend fun foldedBook(
+        input: Bitmap,
+        pages: Int = 96,
+        depth: Float = 48f,
+        viewAngle: Float = 25f,
+        paper: Int = 0xFFF4E8CD.toInt(),
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Reconstruct the image with upright spiral paper strips, colored edges and relief shadows. */
+    suspend fun paperQuilling(
+        input: Bitmap,
+        cellSize: Float = 40f,
+        turns: Float = 3.5f,
+        stripWidth: Float = 0.06f,
+        relief: Float = 0.8f,
+        background: Int = 0xFFF5F0E4.toInt(),
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Refract the image through a sheet of cylindrical lenses, with viewing angle and lens rotation controlling the visible distortion. */
+    suspend fun lenticularPrint(
+        input: Bitmap,
+        lensWidth: Float = 16f,
+        viewAngle: Float = 0f,
+        refraction: Float = 1.5f,
+        gloss: Float = 0.45f,
+        rotation: Float = 0f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Build a three-dimensional pin board from image luminance, with shaded pin tops, sides and overlaps. */
+    suspend fun pinArt(
+        input: Bitmap,
+        spacing: Float = 18f,
+        height: Float = 0.065f,
+        angle: Float = 35f,
+        gloss: Float = 0.65f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Place the image under glossy ceramic glaze with pigment pooling, fine crackle and relief highlights. */
+    suspend fun ceramicGlaze(
+        input: Bitmap,
+        size: Float = 32f,
+        pooling: Float = 0.55f,
+        gloss: Float = 0.7f,
+        crackle: Float = 0.5f,
+        seed: Int = 0,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Construct a wood inlay image with individually oriented grain and beveled seams between pieces. */
+    suspend fun marquetry(
+        input: Bitmap,
+        size: Float = 42f,
+        grain: Float = 0.7f,
+        bevel: Float = 0.65f,
+        seed: Int = 0,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** Visualize an image-derived stress tensor through crossed polarizers as colored interference fringes. */
+    suspend fun photoelasticStress(
+        input: Bitmap,
+        load: Float = 2.4f,
+        smoothing: Float = 8f,
+        angle: Float = 25f,
+        ambient: Float = 0.22f,
+        strength: Float = 1f
+    ): Bitmap
+
+    /** View the image through a layer of refracting condensation droplets with variable coverage and a soft glass haze. */
+    suspend fun condensation(
+        input: Bitmap,
+        size: Float = 48f,
+        coverage: Float = 0.65f,
+        refraction: Float = 0.7f,
+        haze: Float = 0.18f,
+        seed: Int = 0,
+        strength: Float = 1f
+    ): Bitmap
 }
