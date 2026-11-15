@@ -63,7 +63,7 @@ fi
 
 for crate in "$@"; do
   case "$crate" in
-    jhm17_jni) build_patched_crate "$crate" jhm17 jhm17-0.1.0.patch ;;
+    jhm17_jni) build_patched_crate "$crate" jhm17 jhm17-0.1.1.patch ;;
     oxipng_jni) build_patched_crate "$crate" oxipng oxipng-10.1.1.patch ;;
     vvc_jni) build_patched_crate "$crate" garnetash garnetash-0.1.1.patch ;;
     ntsc_jni) build_patched_crate "$crate" ntsc-rs ntsc-rs-add90f5.patch https://github.com/ntsc-rs/ntsc-rs ;;

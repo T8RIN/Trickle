@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-jhm17 = { version = "=0.1.0", features = ["polish"] }
+jhm17 = { version = "=0.1.1", features = ["polish"] }
 jni = { version = "0.21", default-features = false }
 
 [profile.release]
